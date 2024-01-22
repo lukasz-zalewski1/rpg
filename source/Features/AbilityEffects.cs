@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VeganRPG
 {
@@ -15,24 +11,26 @@ namespace VeganRPG
 
     class AbilityEffects
     {
-        double playerDefenseAdded;
-        double playerDefenseMultipler;
+        public double PlayerDefenseAdded { get; set; }
+        public double PlayerDefenseMultipler { get; set; }
 
-        double playerDmgMin, playerDmgMax;
-        double playerDmgMultipler;
+        public double PlayerDmgMin { get; set; }
+        public double PlayerDmgMax { get; set; }
+        public double PlayerDmgMultipler { get; set; }
 
+        public double EnemyDefenseAdded { get; set; }
+        public double EnemyDefenseMultipler { get; set; }
 
-        double enemyDefenseAdded;
-        double enemyDefenseMultipler;
+        public double EnemyDmgMin { get; set; }
+        public double EnemyDmgMax { get; set; }
+        public double EnemyDmgMultipler { get; set; }
 
-        double enemyDmgMin, enemyDmgMax;
-        double enemyDmgMultipler;
+        public double EnemyGoldMin { get; set; }
+        public double EnemyGoldMax { get; set; }
+        public double EnemyGoldMultipler { get; set; }
 
-        double enemyGoldMin, enemyGoldMax;
-        double enemyGoldMultipler;
-
-        double enemyExperienceAdded;
-        double enemyExperienceMultipler;
+        public double EnemyExperienceAdded { get; set; }
+        public double EnemyExperienceMultipler { get; set; }
 
         public AbilityEffects()
         {
@@ -66,27 +64,27 @@ namespace VeganRPG
             double enemyGoldMin, double enemyGoldMax, double enemyGoldMultipler,
             double enemyExperienceAdded, double enemyExperienceMultipler)
         {
-            this.PlayerDefenseAdded = playerDefenseAdded;
-            this.PlayerDefenseMultipler = playerDefenseMultipler;
+            PlayerDefenseAdded = playerDefenseAdded;
+            PlayerDefenseMultipler = playerDefenseMultipler;
 
-            this.PlayerDmgMin = playerDmgMin;
-            this.PlayerDmgMax = playerDmgMax;
-            this.PlayerDmgMultipler = playerDmgMultipler;
+            PlayerDmgMin = playerDmgMin;
+            PlayerDmgMax = playerDmgMax;
+            PlayerDmgMultipler = playerDmgMultipler;
 
 
-            this.EnemyDefenseAdded = enemyDefenseAdded;
-            this.EnemyDefenseMultipler = enemyDefenseMultipler;
+            EnemyDefenseAdded = enemyDefenseAdded;
+            EnemyDefenseMultipler = enemyDefenseMultipler;
 
-            this.EnemyDmgMin = enemyDmgMin;
-            this.EnemyDmgMax = enemyDmgMax;
-            this.EnemyDmgMultipler = enemyDmgMultipler;
+            EnemyDmgMin = enemyDmgMin;
+            EnemyDmgMax = enemyDmgMax;
+            EnemyDmgMultipler = enemyDmgMultipler;
 
-            this.EnemyGoldMin = enemyGoldMin;
-            this.EnemyGoldMax = enemyGoldMax;
-            this.EnemyGoldMultipler = enemyGoldMultipler;
+            EnemyGoldMin = enemyGoldMin;
+            EnemyGoldMax = enemyGoldMax;
+            EnemyGoldMultipler = enemyGoldMultipler;
 
-            this.EnemyExperienceAdded = enemyExperienceAdded;
-            this.EnemyExperienceMultipler = enemyExperienceMultipler;
+            EnemyExperienceAdded = enemyExperienceAdded;
+            EnemyExperienceMultipler = enemyExperienceMultipler;
         }
 
         public void ApplyEffects(Player player, int basePlayerDefense, Tuple<int, int> basePlayerDamage,
@@ -112,21 +110,5 @@ namespace VeganRPG
 
             enemy.Experience = Convert.ToInt32((baseEnemyExperience + EnemyExperienceAdded) * EnemyExperienceMultipler);
         }
-
-        public double PlayerDefenseAdded { get => playerDefenseAdded; set => playerDefenseAdded = value; }
-        public double PlayerDefenseMultipler { get => playerDefenseMultipler; set => playerDefenseMultipler = value; }
-        public double PlayerDmgMin { get => playerDmgMin; set => playerDmgMin = value; }
-        public double PlayerDmgMax { get => playerDmgMax; set => playerDmgMax = value; }
-        public double PlayerDmgMultipler { get => playerDmgMultipler; set => playerDmgMultipler = value; }
-        public double EnemyDefenseAdded { get => enemyDefenseAdded; set => enemyDefenseAdded = value; }
-        public double EnemyDefenseMultipler { get => enemyDefenseMultipler; set => enemyDefenseMultipler = value; }
-        public double EnemyDmgMin { get => enemyDmgMin; set => enemyDmgMin = value; }
-        public double EnemyDmgMax { get => enemyDmgMax; set => enemyDmgMax = value; }
-        public double EnemyDmgMultipler { get => enemyDmgMultipler; set => enemyDmgMultipler = value; }
-        public double EnemyGoldMin { get => enemyGoldMin; set => enemyGoldMin = value; }
-        public double EnemyGoldMax { get => enemyGoldMax; set => enemyGoldMax = value; }
-        public double EnemyGoldMultipler { get => enemyGoldMultipler; set => enemyGoldMultipler = value; }
-        public double EnemyExperienceAdded { get => enemyExperienceAdded; set => enemyExperienceAdded = value; }
-        public double EnemyExperienceMultipler { get => enemyExperienceMultipler; set => enemyExperienceMultipler = value; }
     }
 }

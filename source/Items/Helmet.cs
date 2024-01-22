@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace VeganRPG
+﻿namespace VeganRPG
 {
     class Helmet : Item
     { 
@@ -11,13 +7,13 @@ namespace VeganRPG
 
         }
 
-        public Helmet(int level, string name, int Health, int defense, bool isBase = false)
+        public Helmet(int level, string name, int health, int defense, bool isBase = false)
         {
-            this.Level = level;
-            this.Name = name;
-            this.Health = Health;
-            this.Defense = defense;
-            this.IsBase = isBase;
+            Level = level;
+            Name = name;
+            Health = health;
+            Defense = defense;
+            IsBase = isBase;
         }
     }
 }

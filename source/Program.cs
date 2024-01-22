@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace VeganRPG
+﻿namespace VeganRPG
 {
     class Program
     {

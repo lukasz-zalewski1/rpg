@@ -1,30 +1,24 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Reflection;
 
 namespace VeganRPG
 {
     class Ability
     {
-        string name;
-        string description;
-
-        int level;
-        int maxLevel;
+        public int Level { get; set; }
+        public int MaxLevel { get; set; }
 
         // Fight uses variable turns to manipulate in-place how many turns are left till ability effects stop
         // TurnsConst is variable that's needed to restore old value after fight
-        int turns;
-        int turnsConst;
+        public int Turns { get; set; }
+        public int TurnsConst { get; set; }
 
-        int cost;
+        public int Cost { get; set; }
 
-        AbilityEffects abilityEffects;
+        public string Name { get; set; }
+        public string Description { get; set; }
+            
+        internal AbilityEffects AbilityEffects;
 
-        
         /// <summary>
         /// Constructs Ability object
         /// </summary>
@@ -48,7 +42,6 @@ namespace VeganRPG
 
             AbilityEffects = abilityEffects;
         }
-
         
         /// <summary>
         /// Adds every effect of ability to effects combined, it sums 
@@ -79,20 +72,11 @@ namespace VeganRPG
 
         public virtual void Info()
         {
-            string info = "@11|" + Cost + " " + Name + " @15|- ";
+            string info = "@11|" + Name + ", " + Cost + " Ap @15|- ";
 
             Util.WriteColorString(info);
   
-            Util.WriteColorString(description);
+            Util.WriteColorString(Description);
         }
-
-        public int Level { get => level; set => level = value; }
-        public int Turns { get => turns; set => turns = value; }
-        public int Cost { get => cost; set => cost = value; }
-        public string Name { get => name; set => name = value; }
-        public string Description { get => description; set => description = value; }
-        public int MaxLevel { get => maxLevel; set => maxLevel = value; }
-        public int TurnsConst { get => turnsConst; set => turnsConst = value; }
-        internal AbilityEffects AbilityEffects { get => abilityEffects; set => abilityEffects = value; }
     }
 }

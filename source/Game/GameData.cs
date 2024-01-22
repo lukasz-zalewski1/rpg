@@ -1,19 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Linq;
-using System.IO;
 
 namespace VeganRPG
 {
-    class Game
+    public partial class Game
     {
-        string saveName;
-
-        readonly int percentageExperiencePenalty;
-
-        readonly Random randomizer;
-
         List<Helmet> helmets;
         List<Armor> armors;
         List<Legs> legs;
@@ -34,1749 +25,6 @@ namespace VeganRPG
         List<NPC> npcs;
 
         List<City> cities;
-
-        readonly Player player;
-
-        City city;
-
-        List<Quest> activeQuests;
-        List<Tuple<Enemy, int>> enemyTracker;
-
-        public Game()
-        {
-            percentageExperiencePenalty = 3;
-
-            randomizer = new Random();
-
-            GenerateHelmets();
-            GenerateArmors();
-            GenerateLegs();
-            GenerateBoots();
-            GenerateWeapons();
-
-            GenerateConsumables();
-            GenerateQuestItems();
-
-            GenerateItems();
-
-            GenerateEnemies();
-
-            GenerateAbilities();
-
-            GenerateAreas();
-      
-            GenerateQuests();
-
-            GenerateNpcs();
-
-            GenerateCities();
-
-            player = new Player(items);
-            
-            city = cities.Find(x => x.Name == "Farm");
-
-            activeQuests = new List<Quest>();
-
-            enemyTracker = new List<Tuple<Enemy, int>>();
-        }
-
-        #region Save / Load
-        void Save(string name = null, bool quick = false)
-        {
-            string save = "";
-
-            SaveGameState(ref save);
-            SavePlayerState(ref save);
-
-            if (name != null)
-            {
-                saveName = name + ".sav";
-            }
-
-            File.WriteAllText(saveName, save);
-
-            Console.Clear();
-
-            if (!quick)
-            {
-                Util.Write("Game ");
-                Util.WriteLine("saved", ConsoleColor.DarkRed);
-            }
-
-            Console.ReadKey();
-        }
-
-        void SaveGameState(ref string save)
-        {
-            SaveActiveQuests(ref save);
-            SaveEnemyTracker(ref save);
-            SaveCity(ref save);
-        }
-
-        void SaveActiveQuests(ref string save)
-        {
-            save += "ActiveQuests:";
-
-            foreach (var quest in activeQuests)
-            {
-                save += quest.Name + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SaveEnemyTracker(ref string save)
-        {
-            save += "EnemyTracker:";
-
-            foreach (var enemy in enemyTracker)
-            {
-                save += enemy.Item1.Name + "|" + enemy.Item2 + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SaveCity(ref string save)
-        {
-            save += "City:" + city.Name + "||\n";
-        }
-
-        void SavePlayerState(ref string save)
-        {
-            SavePlayerQuestsDone(ref save);
-
-            SavePlayerItems(ref save);
-            SavePlayerConsumables(ref save);
-            SavePlayerQuestItems(ref save);
-
-            SavePlayerEquipment(ref save);
-
-            SavePlayerStats(ref save);
-        }
-
-        void SavePlayerQuestsDone(ref string save)
-        {
-            save += "QuestsDone:";
-
-            foreach (var quest in player.QuestsDone)
-            {
-                save += quest.Name + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SavePlayerItems(ref string save)
-        {
-            save += "Items:";
-
-            foreach (var item in player.ItemStash)
-            {
-                save += item.Name + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SavePlayerConsumables(ref string save)
-        {
-            save += "Consumables:";
-
-            foreach (var item in player.Consumables)
-            {
-                save += item.Name + "|" + item.Count + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SavePlayerQuestItems(ref string save)
-        {
-            save += "QuestItems:";
-
-            foreach (var item in player.QuestItems)
-            {
-                save += item.Name + "|" + item.Count + ";";
-            }
-
-            save += "||\n";
-        }
-
-        void SavePlayerEquipment(ref string save)
-        {
-            save += "Helmet:" + player.Helmet.Name + "||\n";
-            save += "Armor:" + player.Armor.Name + "||\n";
-            save += "Legs:" + player.Legs.Name + "||\n";
-            save += "Boots:" + player.Boots.Name + "||\n";
-            save += "Weapon:" + player.Weapon.Name + "||\n";
-        }
-
-        void SavePlayerStats(ref string save)
-        {
-            save += "Experience:" + player.Experience + "||\n";
-            save += "Level:" + player.Level + "||\n";
-            save += "Gold:" + player.Gold + "||\n";
-            save += "Ap:" + player.Ap + "||\n";
-            save += "MaxHealth:" + player.MaxHealth + "||\n";
-            save += "Health:" + player.Health + "||\n";
-            save += "Damage:" + player.Damage.Item1 + ";" + player.Damage.Item2 + "||\n";
-            save += "Defense:" + player.Defense + "||\n";
-        }
-
-        bool Load()
-        {
-            Console.Clear();
-
-            string save = "";
-
-            Util.WriteLine("Adventure name: ");
-            string name = Console.ReadLine();
-
-            saveName = name + ".sav";
-
-            if (File.Exists(saveName))
-            {
-                save = File.ReadAllText(saveName);
-
-                save = save.Replace("\n", "");
-                save = save.Trim();
-                List<string> saveSplitted = save.Split("||").ToList();
-                saveSplitted.RemoveAll(x => x == "");
-
-                LoadGameState(saveSplitted);
-                LoadPlayerState(saveSplitted);
-
-                Console.Clear();
-
-                Util.Write("Game ");
-                Util.WriteLine("loaded", ConsoleColor.DarkRed);
-
-                Console.ReadKey();
-
-                return true;
-            }
-            else
-            {
-                Util.WriteLine("That adventure doesn't exist");
-
-                Console.ReadKey();
-
-                return false;
-            }
-        }
-
-        static string LoadValue(List<string> saveSplitted, string heading)
-        {
-            string line = saveSplitted.Find(x => x.StartsWith(heading));
-
-            line = line.Substring(line.IndexOf(":") + 1);
-
-            return line;
-        }
-
-        static List<string> LoadValueList(List<string> saveSplitted, string heading)
-        {
-            List<string> valueList = new List<string>();
-
-            valueList = LoadValue(saveSplitted, heading).Split(";").ToList();
-            valueList.RemoveAll(x => x == "");
-
-            return valueList;
-        }   
-
-        static List<Tuple<string, int>> LoadValueTupleList(List<string> saveSplitted, string heading)
-        {
-            List<Tuple<string, int>> valueTupleList = new List<Tuple<string, int>>();
-            List<string> valueList = LoadValueList(saveSplitted, heading);
-
-            List<string> tupleString;
-            foreach (var value in valueList)
-            {
-                tupleString = value.Split("|").ToList();
-                valueTupleList.Add(new Tuple<string, int>(tupleString[0], Convert.ToInt32(tupleString[1])));
-            }
-
-            return valueTupleList;
-        }
-
-        void LoadGameState(List<string> saveSplitted)
-        {
-            LoadActiveQuests(saveSplitted);
-            LoadEnemyTracker(saveSplitted);
-            LoadCity(saveSplitted);
-        }
-
-        void LoadActiveQuests(List<string> saveSplitted)
-        {
-            List<string> activeQuestsList = LoadValueList(saveSplitted, "ActiveQuests");
-
-            activeQuests = new List<Quest>();
-            foreach (var quest in activeQuestsList)
-            {
-                activeQuests.Add(quests.Find(x => x.Name == quest));
-            }
-        }
-        
-        void LoadEnemyTracker(List<string> saveSplitted)
-        {
-            List<Tuple<string, int>> enemyTrackerList = LoadValueTupleList(saveSplitted, "EnemyTracker");
-
-            enemyTracker = new List<Tuple<Enemy, int>>();
-            foreach (var enemy in enemyTrackerList)
-            {
-                enemyTracker.Add(new Tuple<Enemy, int>(enemies.Find(x => x.Name == enemy.Item1), enemy.Item2));
-            }
-        }
-
-        void LoadCity(List<string> saveSplitted)
-        {
-            string cityString = LoadValue(saveSplitted, "City");
-
-            city = cities.Find(x => x.Name == cityString);
-        }
-
-        void LoadPlayerState(List<string> saveSplitted)
-        {
-            LoadPlayerQuestsDone(saveSplitted);
-
-            LoadPlayerItems(saveSplitted);
-            LoadPlayerConsumables(saveSplitted);
-            LoadPlayerQuestItems(saveSplitted);
-
-            LoadPlayerEquipment(saveSplitted);
-
-            LoadPlayerStats(saveSplitted);
-        }
-
-        void LoadPlayerQuestsDone(List<string> saveSplitted)
-        {
-            List<string> questsDoneList = LoadValueList(saveSplitted, "QuestsDone");
-
-            player.QuestsDone = new List<Quest>();
-            foreach (var quest in questsDoneList)
-            {
-                player.QuestsDone.Add(quests.Find(x => x.Name == quest));
-            }
-        }
-
-        void LoadPlayerItems(List<string> saveSplitted)
-        {
-            List<string> itemsList = LoadValueList(saveSplitted, "Items");
-
-            player.ItemStash = new List<Item>();
-            foreach (var item in itemsList)
-            {
-                player.ItemStash.Add(items.Find(x => x.Name == item));
-            }
-        }
-
-        void LoadPlayerConsumables(List<string> saveSplitted)
-        {
-            List<Tuple<string, int>> consumablesList = LoadValueTupleList(saveSplitted, "Consumables");
-
-            player.Consumables = new List<Consumable>();
-            Consumable consumable;
-            foreach (var item in consumablesList)
-            {
-                consumable = consumables.Find(x => x.Name == item.Item1);
-                consumable.Count = item.Item2;
-                player.Consumables.Add(consumable);
-            }
-        }
-
-        void LoadPlayerQuestItems(List<string> saveSplitted)
-        {
-            List<Tuple<string, int>> questItemsList = LoadValueTupleList(saveSplitted, "QuestItems");
-
-            player.QuestItems = new List<QuestItem>();
-            QuestItem questItem;
-            foreach (var item in questItemsList)
-            {
-                questItem = questItems.Find(x => x.Name == item.Item1);
-                questItem.Count = item.Item2;
-                player.QuestItems.Add(questItem);
-            }
-        }
-
-        void LoadPlayerEquipment(List<string> saveSplitted)
-        {
-            string helmetString = LoadValue(saveSplitted, "Helmet");
-            string armorString = LoadValue(saveSplitted, "Armor");
-            string legsString = LoadValue(saveSplitted, "Legs");
-            string bootsString = LoadValue(saveSplitted, "Boots");
-            string weaponString = LoadValue(saveSplitted, "Weapon");
-
-            player.Helmet = (Helmet) items.Find(x => x.Name == helmetString);
-            player.Armor = (Armor)items.Find(x => x.Name == armorString);
-            player.Legs = (Legs)items.Find(x => x.Name == legsString);
-            player.Boots = (Boots)items.Find(x => x.Name == bootsString);
-            player.Weapon = (Weapon)items.Find(x => x.Name == weaponString);
-        }
-
-        void LoadPlayerStats(List<string> saveSplitted)
-        {
-            player.Experience = Convert.ToInt32(LoadValue(saveSplitted, "Experience"));
-            player.Level = Convert.ToInt32(LoadValue(saveSplitted, "Level"));
-            player.Gold = Convert.ToInt32(LoadValue(saveSplitted, "Gold"));
-            player.Ap = Convert.ToInt32(LoadValue(saveSplitted, "Ap"));
-            player.MaxHealth = Convert.ToInt32(LoadValue(saveSplitted, "MaxHealth"));
-            player.Health = Convert.ToInt32(LoadValue(saveSplitted, "Health"));
-            player.Defense = Convert.ToInt32(LoadValue(saveSplitted, "Defense"));
-
-            List<string> damageList = LoadValueList(saveSplitted, "Damage");
-            player.Damage = new Tuple<int, int>(Convert.ToInt32(damageList[0]), Convert.ToInt32(damageList[1]));
-        }
-
-        #endregion
-
-        static void ExitGame()
-        {
-            Console.Clear();
-
-            Util.WriteLine("Exiting the game");
-
-            Console.ReadKey();
-        }
-
-        void NewGame()
-        {
-            saveName = "adventure";
-
-            saveName += randomizer.Next(100000) + ".sav";
-
-            Console.Clear();
-
-            Util.WriteColorString("@15|During your trip outside your @10|homeland@15|, you found yourself " +
-                                  "lost in an unkown @10|land\n");
-
-            /*Util.Write("During your trip outside your ");
-            Util.Write("homeland", ConsoleColor.Green);
-            Util.Write(", you found yourself lost in an unknown ");
-            Util.WriteLine("land", ConsoleColor.Green);*/
-
-            Util.WriteColorString("@15|From afar you can see some buildings, it looks like a @10|farm\n");
-
-            /*Util.Write("From afar you can notice some buildings, it looks like a ");
-            Util.WriteLine("farm", ConsoleColor.Green);*/
-
-            Util.Write("You chose to go in that direction");
-
-            Console.ReadKey();
-
-            Console.Clear();
-        }
-
-        public void StartMenu()
-        {
-            while (true)
-            {
-                Console.Clear();
-
-                Util.WriteColorString("@15|1. @4|New @15|game\n");
-
-                /*Util.Write("1. ");
-                Util.Write("New ", ConsoleColor.DarkRed);
-                Util.WriteLine("game");*/
-
-                Util.WriteColorString("@15|2. @4|Load @15|game");
-
-                /*Util.Write("2. ");
-                Util.Write("Load ", ConsoleColor.DarkRed);
-                Util.WriteLine("game");*/
-
-                Util.WriteLine("\n0. Exit");
-
-                var decision = Console.ReadKey();
-
-                if (decision.Key == ConsoleKey.NumPad0)
-                {
-                    ExitGame();
-
-                    return;
-                }
-                else if (decision.Key == ConsoleKey.NumPad1)
-                {
-                    NewGame();
-                    Menu();
-                }
-                else if (decision.Key == ConsoleKey.NumPad2)
-                {
-                    if(Load())
-                    {
-                        Menu();
-                    }
-                }             
-            }          
-        }
-
-        public void Menu()
-        {
-            while (true)
-            {
-                if (player.QuestsDone.Find(x => x.Name == "The End") != null)
-                {
-                    Console.Clear();
-
-                    Util.WriteMulticolor("CONGRATULATIONS, YOU WON THE GAME !!!");
-                    Util.Write("\n\n");
-
-                    Util.WriteColorString("@4|Experience@15|: @4|" + player.Experience + "@15| / @4|" +
-                                          player.ExperienceToLevel(player.Level) + "\n");
-
-                    /*Util.Write("Experience", ConsoleColor.DarkRed);
-                    Util.Write(": ");
-                    Util.Write(player.Experience + " ", ConsoleColor.DarkRed);
-                    Util.Write("/ ");
-                    Util.WriteLine(player.ExperienceToLevel(player.Level) + "", ConsoleColor.DarkRed);*/
-
-                    Util.WriteColorString("@4|Level@15|: @4|" + player.Level + "\n\n");
-
-                    /*Util.Write("Level", ConsoleColor.DarkRed);
-                    Util.Write(": ");
-                    Util.WriteLine(player.Level + "\n", ConsoleColor.DarkRed);*/
-
-                    Util.WriteColorString("@6|Gold@15|: @6|" + player.Gold + "\n\n");
-
-                    /*Util.Write("Gold", ConsoleColor.DarkYellow);
-                    Util.Write(": ");
-                    Util.WriteLine(player.Gold + "\n", ConsoleColor.DarkYellow);*/
-
-                    Util.WriteColorString("@12|Health@15|: " + player.Health + "@15| / @12|" +
-                                          player.MaxHealth + "\n");
-
-                    /*Util.Write("Health", ConsoleColor.Red);
-                    Util.Write(": ");
-                    Util.Write(player.Health + "", ConsoleColor.Red);
-                    Util.Write(" / ");
-                    Util.WriteLine(player.MaxHealth + "", ConsoleColor.Red);*/
-
-                    Util.WriteColorString("@13|Damage@15|: @13|" + player.Damage.Item1 + "@15| - @13|" +
-                                          player.Damage.Item2 + "\n");
-
-                    /*Util.Write("Damage", ConsoleColor.Magenta);
-                    Util.Write(": ");
-                    Util.Write(player.Damage.Item1 + "", ConsoleColor.Magenta);
-                    Util.Write(" - ");
-                    Util.WriteLine(player.Damage.Item2 + "", ConsoleColor.Magenta);*/
-
-                    Util.WriteColorString("@5|Defense@15|: @5|" + player.Defense + "\n");
-
-                    /*Util.Write("Defense", ConsoleColor.DarkMagenta);
-                    Util.Write(": ");
-                    Util.WriteLine(player.Defense + "\n", ConsoleColor.DarkMagenta);*/
-
-                    Save(saveName, true);
-
-                    Console.ReadKey();                  
-
-                    break;
-                }
-
-                Console.Clear();
-
-                Util.WriteColorString("@10|" + city.Name + "\n");
-
-                /*Util.WriteLine(city.Name, ConsoleColor.Green);*/
-
-                Util.WriteColorString("@15|1. @9|People\n");
-
-                /*Util.Write("1. ");
-                Util.WriteLine("People", ConsoleColor.Blue);*/
-
-                Util.WriteLine("2. Go outside\n");
-
-                Util.WriteColorString("@15|3. @2|Statistics @15|and @8|Equipment\n");
-
-                /*Util.Write("3. ");
-                Util.Write("Statistics ", ConsoleColor.DarkGreen);
-                Util.Write("and ");
-                Util.WriteLine("Equipment", ConsoleColor.DarkGray);*/
-
-                Util.WriteColorString("@15|4. @12|Quest @15|tracker\n");
-
-                /*Util.Write("4. ");
-                Util.Write("Quest", ConsoleColor.Red);
-                Util.WriteLine(" tracker");*/
-
-                if (city.EndQuest != null && player.QuestsDone.Find(x => x == city.EndQuest) != null)
-                {
-                    Util.WriteColorString("@15|5. Travel to the next @10|place\n");
-
-                    /*Util.Write("5. Travel to the next ");
-                    Util.WriteLine("place\n", ConsoleColor.Green);*/
-                }
-
-                Util.WriteColorString("@15|\n6. @4|Save\n");
-
-                /*Util.Write("\n6. ");
-                Util.WriteLine("Save", ConsoleColor.DarkRed);*/
-
-                Util.WriteColorString("@15|7. @4|Save @15|as\n");
-
-                /*Util.Write("7. ");
-                Util.Write("Save ", ConsoleColor.DarkRed);
-                Util.WriteLine("as");*/
-
-                Util.WriteLine("\nE. Exit");
-
-                var decision = Console.ReadKey();
-
-                if (decision.Key == ConsoleKey.E)
-                {
-                    while (true)
-                    {
-                        Console.Clear();
-
-                        Util.WriteColorString("@15|Should the game be @4|saved @15| before you close current game?\n");
-
-                        /*Util.Write("Should the game be ");
-                        Util.Write("saved ", ConsoleColor.DarkRed);
-                        Util.WriteLine("before you close current game?");*/
-
-                        Util.WriteColorString("@15|1. @4|Save\n");
-
-                        /*Util.Write("1. ");
-                        Util.WriteLine("Save", ConsoleColor.DarkRed);*/
-
-                        Util.Write("\n0. Exit");
-
-                        decision = Console.ReadKey();
-
-                        if (decision.Key == ConsoleKey.NumPad0)
-                        {
-                            return;
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad1)
-                        {
-                            Save();
-                        }
-                    }
-                }
-                else if (decision.Key == ConsoleKey.NumPad1)
-                {
-                    city.People(player, activeQuests, enemyTracker);
-                }
-                else if (decision.Key == ConsoleKey.NumPad2)
-                {
-                    while (true)
-                    {
-                        if (player.QuestsDone.Find(x => x.Name == "The End") != null)
-                        {
-                            break;
-                        }
-
-                        Enemy enemy = city.Outside(player, activeQuests);
-
-                        if (enemy != null)
-                        {
-                            if (Fight(enemy))
-                            {
-                                if (enemy.Boss)
-                                {
-                                    Quest bossQuest = null;
-
-                                    foreach (var quest in activeQuests)
-                                    {
-                                        if (quest.QuestEnemies.Find(x => x.Item1 == enemy) != null)
-                                        {
-                                            bossQuest = quest;
-                                        }
-                                    }
-                                    if (bossQuest != null)
-                                    {
-                                        Console.Clear();
-
-                                        bossQuest.Finish(player, enemyTracker);
-                                        activeQuests.Remove(bossQuest);
-                                    }
-                                }
-
-                                continue;
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                }
-                else if (decision.Key == ConsoleKey.NumPad3)
-                {
-                    PlayerMenu();
-                }
-                else if (decision.Key == ConsoleKey.NumPad4)
-                {
-                    QuestTracker();
-                }
-                else if (decision.Key == ConsoleKey.NumPad5)
-                {
-                    if (city.EndQuest != null && player.QuestsDone.Find(x => x == city.EndQuest) != null)
-                    {
-                        Travel();
-                    }
-                }
-                else if (decision.Key == ConsoleKey.NumPad6)
-                {
-                    Save();
-                }
-                else if (decision.Key == ConsoleKey.NumPad7)
-                {
-                    Console.Clear();
-
-                    Util.WriteLine("Adventure name: ");
-
-                    string name = Console.ReadLine();
-
-                    Save(name);
-                }
-            }
-        }
-
-        void PlayerMenu()
-        {
-            while (true)
-            {
-                Console.Clear();
-
-                Util.WriteColorString("@15|1. @2|Statistics\n\n");
-
-                /*Util.Write("1. ");
-                Util.WriteLine("Statistics\n", ConsoleColor.DarkGreen);*/
-
-                Util.WriteColorString("@15|2. @8|Item @15|stash\n");
-
-                /*Util.Write("2. ");
-                Util.Write("Item ", ConsoleColor.DarkGray);
-                Util.WriteLine("stash");*/
-
-                Util.WriteColorString("@15|3. Equip @8|Item\n\n");
-
-                /*Util.Write("3. Equip ");
-                Util.WriteLine("Item\n", ConsoleColor.DarkGray);*/
-
-                Util.WriteColorString("@15|4. @14|Consume\n");
-
-                /*Util.Write("4. ");
-                Util.WriteLine("Consume", ConsoleColor.Yellow);*/
-
-                Util.WriteColorString("@15|5. @14|Consume@15|, till full on @12|health\n\n");
-
-                /*Util.Write("5. ");
-                Util.Write("Consume", ConsoleColor.Yellow);
-                Util.Write(", till full on ");
-                Util.WriteLine("health\n", ConsoleColor.Red);*/
-
-                Util.WriteLine("\n0. Exit");
-
-                ConsoleKeyInfo decision = Console.ReadKey();
-
-                if (decision.Key == ConsoleKey.NumPad0)
-                {
-                    break;
-                }
-                else if (decision.Key == ConsoleKey.NumPad1)
-                {
-                    player.ShowStatistics();
-                }
-                else if (decision.Key == ConsoleKey.NumPad2)
-                {
-                    player.ShowItemStash();
-                }
-                else if (decision.Key == ConsoleKey.NumPad3)
-                {
-                    while (true)
-                    {
-                        Console.Clear();
-
-                        Util.WriteColorString("@15|1. Equip @8|Helmet\n");
-
-                        /*Util.Write("1. Equip ");
-                        Util.WriteLine("Helmet", ConsoleColor.DarkGray);*/
-
-                        Util.WriteColorString("@15|2. Equip @8|Armor\n");
-
-                        /*Util.Write("2. Equip ");
-                        Util.WriteLine("Armor", ConsoleColor.DarkGray);*/
-
-                        Util.WriteColorString("@15|3. Equip @8|Legs\n");
-
-                        /*Util.Write("3. Equip ");
-                        Util.WriteLine("Legs", ConsoleColor.DarkGray);*/
-
-                        Util.WriteColorString("@15|4. Equip @8|Boots\n");
-
-                        /*Util.Write("4. Equip ");
-                        Util.WriteLine("Boots", ConsoleColor.DarkGray);*/
-
-                        Util.WriteColorString("@15|5. Equip @8|Weapon\n");
-
-                        /*Util.Write("5. Equip ");
-                        Util.WriteLine("Weapon", ConsoleColor.DarkGray);*/
-
-                        Util.WriteLine("\n0. Exit");
-
-                        decision = Console.ReadKey();
-
-                        if (decision.Key == ConsoleKey.NumPad0)
-                        {
-                            break;
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad1)
-                        {
-                            player.EquipItem(new Helmet().GetType());
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad2)
-                        {
-                            player.EquipItem(new Armor().GetType());
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad3)
-                        {
-                            player.EquipItem(new Legs().GetType());
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad4)
-                        {
-                            player.EquipItem(new Boots().GetType());
-                        }
-                        else if (decision.Key == ConsoleKey.NumPad5)
-                        {
-                            player.EquipItem(new Weapon().GetType());
-                        }
-                    }
-                }
-                else if (decision.Key == ConsoleKey.NumPad4)
-                {
-                    int site = 0;
-                    while (true)
-                    {
-                        site = Consume(site);
-                        
-                        if (site < 0)
-                        {
-                            break;
-                        }
-                    }
-                }
-                else if (decision.Key == ConsoleKey.NumPad5)
-                {
-                    RestoreHealth();
-                }
-            }
-        }
-
-        void Travel()
-        {
-            city = city.NextCity;
-
-            activeQuests = new List<Quest>();
-            enemyTracker = new List<Tuple<Enemy, int>>();
-        }
-
-        void QuestTracker()
-        {
-            Console.Clear();
-
-            if (activeQuests.Count > 0)
-            {
-                foreach (var quest in activeQuests)
-                {
-                    quest.Info(player, enemyTracker);
-                    Util.Write("\n\n");
-                }
-            }
-            else
-            {
-                Util.WriteColorString("@15|You don't have any active @12|quest\n");
-
-                /*Util.Write("You don't have any active ");
-                Util.WriteLine("quest", ConsoleColor.Red);*/
-            }
-
-            Console.ReadKey();
-        }    
-
-        int Consume(int lastSite = 0)
-        {
-            player.OrderConsumablesList();
-
-            if (player.Consumables.Count == 0)
-            {
-                Console.Clear();
-
-                Util.WriteColorString("@15|You don't have anything to @14|consume\n");
-
-                /*Util.Write("You don't have anything to ");
-                Util.WriteLine("consume", ConsoleColor.Yellow);*/
-
-                Console.ReadKey();
-
-                return -1;
-            }
-
-            int site = lastSite;
-            int maxSite;
-
-            while (true)
-            {
-                maxSite = (player.Consumables.Count - 1) / 7;
-                if (site > maxSite)
-                {
-                    site = maxSite;
-                }
-
-                Console.Clear();
-
-                Util.WriteColorString("@4|Level@15|: @4|" + player.Level + "\n");
-
-                /*Util.Write("Level", ConsoleColor.DarkRed);
-                Util.Write(": ");
-                Util.WriteLine(player.Level + "", ConsoleColor.DarkRed);*/
-
-                Util.WriteColorString("@12|Health@15|: @12|" + player.Health + "@15| / @12|" +
-                                      player.MaxHealth + "\n");
-
-                /*Util.Write("Health", ConsoleColor.Red);
-                Util.Write(": ");
-                Util.Write(player.Health + " ", ConsoleColor.Red);
-                Util.Write("/ ");
-                Util.WriteLine(player.MaxHealth + "", ConsoleColor.Red);*/
-
-                Util.WriteColorString("@11|Ability points@15|: @12|" + player.Ap + "@15| / @12|" +
-                                      (player.Level * player.ApPerLevel) + "\n\n");
-
-                /*Util.Write("Ability points", ConsoleColor.Cyan);
-                Util.Write(": ");
-                Util.Write(player.Ap + " ", ConsoleColor.Cyan);
-                Util.Write("/ ");
-                Util.WriteLine((player.Level * player.ApPerLevel) + "\n", ConsoleColor.Cyan);*/
-
-                Util.WriteColorString("@14|Consumables@15|: " + (site + 1) + " / " + (maxSite + 1) + "\n");
-
-                /*Util.Write("Consumables", ConsoleColor.Yellow);
-                Util.WriteLine(": " + (site + 1) + " / " + (maxSite + 1) + "");*/
-
-                for (int i = 0; i < 7; ++i)
-                {
-                    if (player.Consumables.Count <= i + (site * 7))
-                    {
-                        break;
-                    }
-
-                    Util.Write(i + 1 + " ");
-                    player.Consumables[i + (site * 7)].Info(false);
-                    Util.Write(" - " + player.Consumables[i + (site * 7)].Count + "\n");
-                }
-
-                if (site > 0)
-                {
-                    Util.WriteLine("8. Previous site");
-                }
-
-                if (site < maxSite)
-                {
-                    Util.WriteLine("9. Next site");
-                }
-
-                Util.WriteLine("\n0. Exit");
-
-
-                int decision = Util.NumpadKeyToInt(Console.ReadKey());
-
-                Console.Clear();
-
-                if (decision == 0)
-                {
-                    break;
-                }
-                else if (site > 0 && decision == 8)
-                {
-                    site -= 1;
-                }
-                else if (site < maxSite && decision == 9)
-                {
-                    site += 1;
-                }
-                else if (decision > 0 && decision < 8)
-                {
-                    if (decision + (site * 7) < player.Consumables.Count + 1)
-                    {
-                        if (player.Level < player.Consumables[decision - 1 + (site * 7)].Level)
-                        {
-                            Util.WriteColorString("@15|Your @4|level @15|is too low to @14|consume @15|this\n");
-
-                            /*Util.Write("Your ");
-                            Util.Write("level ", ConsoleColor.DarkRed);
-                            Util.Write("is too low to ");
-                            Util.Write("consume ", ConsoleColor.Yellow);
-                            Util.WriteLine("this");*/
-
-                            Console.ReadKey();
-                        }
-                        else
-                        {
-                            int addedHealth;
-                            int addedAp;
-
-                            if (player.Health + player.Consumables[decision - 1 + (site * 7)].Health > player.MaxHealth)
-                            {
-                                addedHealth = player.MaxHealth - player.Health;
-                            }
-                            else
-                            {
-                                addedHealth = player.Consumables[decision - 1 + (site * 7)].Health;
-                            }
-
-                            if (player.Ap + player.Consumables[decision - 1 + (site * 7)].Ap > player.Level * player.ApPerLevel)
-                            {
-                                addedAp = (player.Level * player.ApPerLevel) - player.Ap;
-
-                            }
-                            else
-                            {
-                                addedAp = player.Consumables[decision - 1 + (site * 7)].Ap;
-                            }
-
-                            if (addedHealth == 0 && addedAp == 0)
-                            {
-                                Util.WriteColorString("@15|You don't need to @14|consume\n");
-
-                                /*Util.Write("You don't need to ");
-                                Util.WriteLine("consume", ConsoleColor.Yellow);*/
-
-                                Console.ReadKey();
-
-                                return -1;
-                            }
-                            else
-                            {
-                                player.Health += addedHealth;
-                                player.Ap += addedAp;
-                            }
-
-                            Util.WriteColorString("@15|You consumed @14|" + player.Consumables[decision - 1 + (site * 7)].Name + "\n");
-
-                            /*Util.Write("You consumed ");
-                            Util.WriteLine(player.Consumables[decision - 1 + (site * 7)].Name, ConsoleColor.Yellow);*/
-
-                            if (addedHealth > 0)
-                            {
-                                Util.WriteColorString("@15|You got @12|" + addedHealth + " Health\n");
-
-                                /*Util.Write("You got ");
-                                Util.WriteLine(addedHealth + " Health", ConsoleColor.Red);*/
-                            }
-                            if (addedAp > 0)
-                            {
-                                Util.WriteColorString("@15|You got @11|" + addedAp + " AP\n");
-
-                                /*Util.Write("You got ");
-                                Util.WriteLine(addedAp + " AP", ConsoleColor.Cyan);*/
-                            }
-                            Console.ReadKey();
-
-                            if (player.Consumables[decision - 1 + (site * 7)].Count == 1)
-                            {
-                                player.Consumables.Remove(player.Consumables[decision - 1 + (site * 7)]);
-                            }
-                            else
-                            {
-                                player.Consumables[decision - 1 + (site * 7)].Count -= 1;
-                            }
-
-                            return site;
-                        }
-                    }
-                }
-            }
-
-            return -1;
-        }
-
-        void RestoreHealth()
-        {
-            List<Consumable> possibleConsumables = player.Consumables.Where(y => y.Health > 0).Where(z => player.Level >= z.Level).
-                OrderByDescending(x => x.OnlyHpValue).ToList();
-                
-            int itemsConsumed = 0;
-            int healthAtStart = player.Health;
-            int apAtStart = player.Ap;
-
-            Console.Clear();
-
-            if (possibleConsumables.Count == 0)
-            {
-                Util.WriteColorString("@15|You can't @14|consume @15|anything\n");
-
-                /*Util.Write("You can't ");
-                Util.Write("consume ", ConsoleColor.Yellow);
-                Util.WriteLine("anything");*/
-
-                Console.ReadKey();
-
-                return;
-            }
-
-            int consumableIndex = 0;
-
-            while (consumableIndex < possibleConsumables.Count && player.Health < player.MaxHealth)
-            {
-                if (possibleConsumables[consumableIndex].Count > 0)
-                {
-                    possibleConsumables[consumableIndex].Count -= 1;
-                }
-                else
-                {
-                    consumableIndex += 1;
-                    continue;
-                }
-
-                if (player.Health + possibleConsumables[consumableIndex].Health > player.MaxHealth)
-                {
-                    player.Health = player.MaxHealth;
-                }
-                else
-                {
-                    player.Health += possibleConsumables[consumableIndex].Health;
-                }
-
-                if (player.Ap + possibleConsumables[consumableIndex].Ap > player.Level * player.ApPerLevel)
-                {
-                    player.Ap = player.Level * player.ApPerLevel;
-                }
-                else
-                {
-                    player.Ap += possibleConsumables[consumableIndex].Ap;
-                }
-
-                itemsConsumed += 1;
-            }
-
-            foreach (var consumable in possibleConsumables)
-            {
-                if (consumable.Count == 0)
-                {
-                    player.Consumables.RemoveAll(x => x == consumable);
-                }
-                else
-                {
-                    player.Consumables.Find(x => x == consumable).Count = consumable.Count;
-                }
-            }
-
-            Util.WriteColorString("@14|Consumed " + itemsConsumed + " @15|items\n");
-
-            /*Util.Write("Consumed " + itemsConsumed + " ", ConsoleColor.Yellow);
-            Util.WriteLine("items");*/
-
-            Util.WriteColorString("@15|Restored @12|" + (player.Health - healthAtStart) + " health @15| " +
-                                  "and @11|" + (player.Ap - apAtStart) + " ability points\n");
-
-            /*Util.Write("Restored ");
-            Util.Write((player.Health - healthAtStart) + " health ", ConsoleColor.Red);
-            Util.Write("and ");
-            Util.WriteLine((player.Ap - apAtStart) + " ability points", ConsoleColor.Cyan);  */
-
-            Console.ReadKey();
-        }
-
-        bool UseAbility(List<Ability> possibleAbilities, ref List<Ability> abilitiesInUse, ref AbilityEffects abilityEffectsCombined)
-        {
-            if (possibleAbilities.Count == 0)
-            {
-                Util.WriteColorString("@15|You can't use any @11|ability");
-
-                /*Util.Write("You can't use any ");
-                Util.WriteLine("ability", ConsoleColor.Cyan);*/
-
-                Console.ReadKey();
-
-                return false;
-            }
-            int site = 0;
-            int maxSite;
-
-            while (true)
-            {
-                maxSite = (possibleAbilities.Count - 1) / 7;
-                if (site > maxSite)
-                {
-                    site = maxSite;
-                }
-
-                Console.Clear();
-
-                Util.WriteColorString("@12|Health@15|: @12|" + player.Health + "@15| / @12|" +
-                                      player.MaxHealth + "\n");
-
-                /*Util.Write("Health", ConsoleColor.Red);
-                Util.Write(": ");
-                Util.Write(player.Health + " ", ConsoleColor.Red);
-                Util.Write("/ ");
-                Util.WriteLine(player.MaxHealth + "", ConsoleColor.Red);*/
-
-                Util.WriteColorString("@13|Damage@15|: @13|" + player.Damage.Item1 + "@15| - @13|" +
-                                      player.Damage.Item2 + "\n");
-
-                /*Util.Write("Damage", ConsoleColor.Magenta);
-                Util.Write(": ");
-                Util.Write(player.Damage.Item1 + " ", ConsoleColor.Magenta);
-                Util.Write("- ");
-                Util.WriteLine(player.Damage.Item2 + "", ConsoleColor.Magenta);*/
-
-                Util.WriteColorString("@5|Defense@15|: @5|" + player.Defense + "\n");
-
-                /*Util.Write("Defense", ConsoleColor.DarkMagenta);
-                Util.Write(": ");
-                Util.WriteLine(player.Defense + "", ConsoleColor.DarkMagenta);*/
-
-                Util.WriteColorString("@11|Ability points@15|: @11|" + player.Ap + "@15| / @11|" +
-                                      (player.Ap * player.ApPerLevel) + "\n");
-
-                /*Util.Write("Ability points", ConsoleColor.Cyan);
-                Util.Write(": ");
-                Util.Write(player.Ap + " ", ConsoleColor.Cyan);
-                Util.Write("/ ");
-                Util.WriteLine((player.Level * player.ApPerLevel) + "\n", ConsoleColor.Cyan);*/
-
-                Util.WriteColorString("@11|Abilities@15|:\n");
-
-                /*Util.Write("Abilities", ConsoleColor.Cyan);
-                Util.WriteLine(":\n");*/
-
-                for (int i = 0; i < 7; ++i)
-                {
-                    if (possibleAbilities.Count <= i + (site * 7))
-                    {
-                        break;
-                    }
-
-                    Util.Write(i + 1 + " ");
-                    possibleAbilities[i + (site * 7)].Info();
-                    Util.Write("\n");
-                }
-
-                if (site > 0)
-                {
-                    Util.WriteLine("8. Previous site");
-                }
-
-                if (site < maxSite)
-                {
-                    Util.WriteLine("9. Next site");
-                }
-
-                Util.WriteLine("\n0. Exit");
-
-                int decision = Util.NumpadKeyToInt(Console.ReadKey());
-
-                Console.Clear();
-
-                if (decision == 0)
-                {
-                    break;
-                }
-                else if (site > 0 && decision == 8)
-                {
-                    site -= 1;
-                }
-                else if (site < maxSite && decision == 9)
-                {
-                    site += 1;
-                }
-                else if (decision > 0 && decision < 8)
-                {
-                    if (decision + (site * 7) < possibleAbilities.Count + 1)
-                    {
-                        if (player.Ap < possibleAbilities[decision - 1 + (site * 7)].Cost)
-                        {
-                            Util.WriteColorString("@15|You don't have enough @11|ability points\n");
-
-                            /*Util.Write("Your don't have enough ");
-                            Util.WriteLine("ability points", ConsoleColor.Cyan);*/
-
-                            Console.ReadKey();
-                        }
-                        else
-                        {
-                            Util.WriteColorString("@15|You used @11|" + possibleAbilities[decision - 1 + (site * 7)].Name +
-                                                  "@15| for @11|" + possibleAbilities[decision - 1 + (site * 7)].Cost +
-                                                  " ability points\n");
-
-                            /*Util.Write("You used ");
-                            Util.Write(possibleAbilities[decision - 1 + (site * 7)].Name + " ", ConsoleColor.Cyan);
-                            Util.Write("for ");
-                            Util.WriteLine(possibleAbilities[decision - 1 + (site * 7)].Cost + " ability points", ConsoleColor.Cyan);*/
-
-                            Console.ReadKey();
-
-                            player.Ap -= possibleAbilities[decision - 1 + (site * 7)].Cost;
-
-                            abilitiesInUse.Add(possibleAbilities[decision - 1 + (site * 7)]);
-
-                            possibleAbilities[decision - 1 + (site * 7)].Use(ref abilityEffectsCombined);
-                            possibleAbilities.Remove(possibleAbilities[decision - 1 + (site * 7)]);
-
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        bool Fight(Enemy enemy)
-        {
-            bool won = false;
-
-            Tuple<int, int> playerDamage = player.Damage;
-            int playerDefense = player.Defense;
-
-            Tuple<int, int> enemyDamage = enemy.Damage;
-            int enemyDefense = enemy.Defense;
-            Tuple<int, int> enemyGold = enemy.Gold;
-            int enemyExperience = enemy.Experience;
-
-            int maxTimesConsuming = (player.Level / 4) + 1;
-            int maxTimesUsingAbility = (player.Level / 4) + 1;
-
-            int timesConsumed = 0;
-            int abilitiesUsed = 0;
-
-            List<Ability> learntAbilities = abilities.Where(x => player.Level >= x.Level).
-                Where(y => player.Level <= y.MaxLevel).ToList();
-            List<Ability> abilitiesInUse = new List<Ability>();
-            AbilityEffects abilityEffectsCombined = new AbilityEffects();
-
-            while (true)
-            {
-                Console.Clear();
-
-                Util.WriteLine("You");
-
-                Util.WriteColorString("@12|Health@15|: @12|" + player.Health + "@15| / @12|" +
-                                      player.MaxHealth + "\n");
-
-                /*Util.Write("Health", ConsoleColor.Red);
-                Util.Write(": ");
-                Util.Write(player.Health + " ", ConsoleColor.Red);
-                Util.Write("/ ");
-                Util.WriteLine(player.MaxHealth + "", ConsoleColor.Red);*/
-
-                Util.WriteColorString("@13|Damage@15|: @13|" + player.Damage.Item1 + "@15| - @13|" +
-                                      player.Damage.Item2 + "\n");
-
-                /*Util.Write("Damage", ConsoleColor.Magenta);
-                Util.Write(": ");
-                Util.Write(player.Damage.Item1 + " ", ConsoleColor.Magenta);
-                Util.Write("- ");
-                Util.WriteLine(player.Damage.Item2 + "", ConsoleColor.Magenta);*/
-
-                Util.WriteColorString("@5|Defense@15|: @5|" + player.Defense + "\n");
-
-                /*Util.Write("Defense", ConsoleColor.DarkMagenta);
-                Util.Write(": ");
-                Util.WriteLine(player.Defense + "", ConsoleColor.DarkMagenta);*/
-
-                Util.WriteColorString("@11|Ability points@15|: @11|" + player.Ap + "@15| / @11|" +
-                                      (player.Level * player.ApPerLevel) + "\n");
-
-                /*Util.Write("Ability points", ConsoleColor.Cyan);
-                Util.Write(": ");
-                Util.Write(player.Ap + " ", ConsoleColor.Cyan);
-                Util.Write("/ ");
-                Util.WriteLine((player.Level * player.ApPerLevel) + "\n", ConsoleColor.Cyan);*/
-
-                Util.WriteColorString("@9|" + enemy.Name + "\n");
-
-                /*Util.WriteLine(enemy.Name + "", ConsoleColor.Blue);*/
-
-                Util.WriteColorString("@12|Health@15|: @12|" + enemy.Health + "@15| / @12|" +
-                                      enemy.MaxHealth + "\n");
-
-                /*Util.Write("Health", ConsoleColor.Red);
-                Util.Write(": ");
-                Util.Write(enemy.Health + " ", ConsoleColor.Red);
-                Util.Write("/ ");
-                Util.WriteLine(enemy.MaxHealth + "", ConsoleColor.Red);*/
-
-                Util.WriteColorString("@13|Damage@15|: @13|" + enemy.Damage.Item1 + "@15| - @13|" +
-                                      enemy.Damage.Item2 + "\n");
-
-                /*Util.Write("Damage", ConsoleColor.Magenta);
-                Util.Write(": ");
-                Util.Write(enemy.Damage.Item1 + " ", ConsoleColor.Magenta);
-                Util.Write("- ");
-                Util.WriteLine(enemy.Damage.Item2 + "", ConsoleColor.Magenta);*/
-
-                Util.WriteColorString("@5|Defense@15|: @5|" + enemy.Defense + "\n");
-
-                /*Util.Write("Defense", ConsoleColor.DarkMagenta);
-                Util.Write(": ");
-                Util.WriteLine(enemy.Defense + " ", ConsoleColor.DarkMagenta);*/
-
-                Util.WriteLine("\n\n1. Hit");
-                if (timesConsumed < maxTimesConsuming && player.Consumables.Count > 0)
-                {
-                    Util.WriteColorString("@15|2. @14|Consume\n");
-
-                    /*Util.Write("2. ");
-                    Util.WriteLine("Consume", ConsoleColor.Yellow);*/
-                }
-                if (abilitiesUsed < maxTimesUsingAbility && learntAbilities.Count > 0)
-                {
-                    Util.WriteColorString("@15|3. Use @11|ability\n");
-
-                    /*Util.Write("3. Use ");
-                    Util.WriteLine("ability", ConsoleColor.Cyan);*/
-                }
-                var decision = Console.ReadKey();
-
-                Util.Write("\n\n");
-
-                if (decision.Key == ConsoleKey.NumPad1)
-                {
-                    PlayerHitEnemy(enemy);
-                }
-                else if (decision.Key == ConsoleKey.NumPad2 && timesConsumed < maxTimesConsuming && player.Consumables.Count > 0)
-                {
-                    if (Consume() >= 0)
-                    {
-                        timesConsumed += 1;
-                    }
-
-                    continue;
-                }
-                else if (decision.Key == ConsoleKey.NumPad3 && abilitiesUsed < maxTimesUsingAbility && learntAbilities.Count > 0)
-                {
-                    if (UseAbility(learntAbilities, ref abilitiesInUse, ref abilityEffectsCombined))
-                    {
-                        abilitiesUsed += 1;
-
-                        abilityEffectsCombined.ApplyEffects(player, playerDefense, playerDamage,
-                                enemy, enemyDefense, enemyDamage, enemyGold, enemyExperience);
-                    }
-
-                    continue;
-                }
-                else
-                {
-                    continue;
-                }
-
-                if (enemy.Health <= 0)
-                {
-                    PlayerWinningAward(enemy);
-                    won = true;
-
-                    break;
-                }
-
-                EnemyHitPlayer(enemy);
-
-                if (player.Health <= 0)
-                {
-                    PlayerLosingPenalty(enemy);
-
-                    break;
-                }
-
-                Console.ReadKey();
-
-                foreach (var ability in abilitiesInUse)
-                {
-                    if (ability.Turns > 0)
-                    {
-                        ability.Turns -= 1;
-
-                        if (ability.Turns == 0)
-                        {
-                            ability.Stop(ref abilityEffectsCombined);
-
-                            abilityEffectsCombined.ApplyEffects(player, playerDefense, playerDamage,
-                                enemy, enemyDefense, enemyDamage, enemyGold, enemyExperience);
-                        }
-                    }
-                }      
-            }
-
-            player.Damage = playerDamage;
-            player.Defense = playerDefense;
-
-            enemy.Health = enemy.MaxHealth;
-
-            enemy.Damage = enemyDamage;
-            enemy.Defense = enemyDefense;
-            enemy.Gold = enemyGold;
-            enemy.Experience = enemyExperience;
-
-            foreach (var ability in abilities)
-            {
-                ability.Turns = ability.TurnsConst;
-            }
-
-            return won;
-        }
-
-        void PlayerHitEnemy(Enemy enemy)
-        {
-            int enemyDefense = enemy.Defense;
-
-            if (enemyDefense < -90)
-            {
-                enemyDefense = -90;
-            }
-
-            double defense = 100.0 / (100.0 + enemyDefense);
-            int damage;
-
-            if (player.Damage.Item1 < player.Damage.Item2)
-            {
-                damage = Convert.ToInt32(randomizer.Next(player.Damage.Item1, player.Damage.Item2 + 1) * defense);
-            }
-            else
-            {
-                damage = Convert.ToInt32(randomizer.Next(player.Damage.Item2, player.Damage.Item1 + 1) * defense);
-            }
-
-            if (enemy.Health - damage > enemy.MaxHealth)
-            {
-                enemy.Health = enemy.MaxHealth;
-            }
-            else
-            {
-                enemy.Health -= damage;
-            }
-
-            Util.WriteColorString("@15|You did @13|" + damage + " damage @15| to @9|" + enemy.Name + "\n");
-
-            /*Util.Write("You did ");
-            Util.Write(damage + " damage ", ConsoleColor.Magenta);
-            Util.Write("to ");
-            Util.WriteLine(enemy.Name, ConsoleColor.Blue);*/
-        }
-
-        void EnemyHitPlayer(Enemy enemy)
-        {
-            int playerDefense = player.Defense;
-
-            if (playerDefense < -90)
-            {
-                playerDefense = -90;
-            }
-
-            double defense = 100.0 / (100.0 + playerDefense);
-            int damage;
-
-            if (enemy.Damage.Item1 < enemy.Damage.Item2)
-            {
-                damage = Convert.ToInt32(randomizer.Next(enemy.Damage.Item1, enemy.Damage.Item2 + 1) * defense);
-            }
-            else
-            {
-                damage = Convert.ToInt32(randomizer.Next(enemy.Damage.Item2, enemy.Damage.Item1 + 1) * defense);
-            }
-
-            if (player.Health - damage > player.MaxHealth)
-            {
-                player.Health = player.MaxHealth;
-            }
-            else
-            {
-                player.Health -= damage;
-            }
-
-            Util.WriteColorString("@9|" + enemy.Name + " @15|did @13|" + damage + " damage @15| to you\n");
-
-            /*Util.Write(enemy.Name, ConsoleColor.Blue);
-            Util.Write(" did ");
-            Util.Write(damage + " damage ", ConsoleColor.Magenta);
-            Console.WriteLine("to you");*/
-        }
-
-        void PlayerWinningAward(Enemy enemy)
-        {
-            player.Experience += enemy.Experience;
-
-            int gold = randomizer.Next(enemy.Gold.Item1, enemy.Gold.Item2 + 1);
-            player.Gold += gold;
-
-            int number;
-            List<Item> loot = new List<Item>();
-            foreach (var item in enemy.Loot)
-            {
-                number = randomizer.Next(0, item.Item2);
-
-                if (number == 0)
-                {
-                    loot.Add(item.Item1);
-                }
-            }
-
-            player.ItemStash.AddRange(loot.Where(x => x is not Consumable && x is not QuestItem));
-
-            List<Consumable> consumablesLooted = loot.Where(x => x is Consumable).Cast<Consumable>().ToList();
-            foreach (var item in consumablesLooted)
-            {
-                if (player.Consumables.Contains(item))
-                {
-                    player.Consumables.Find(x => x == item).Count += 1;
-                }
-                else
-                {
-                    item.Count = 1;
-                    player.Consumables.Add(item);
-                }
-            }
-
-            List<QuestItem> questItemsLooted = loot.Where(x => x is QuestItem).Cast<QuestItem>().ToList();
-            QuestItem questItem;
-            foreach (var item in questItemsLooted)
-            {
-                loot.Remove(item);
-
-                foreach (var quest in activeQuests)
-                {
-                    if (quest.QuestItems.Count > 0)
-                    {
-                        if (quest.QuestItems.Exists(x => x.Item1 == item))
-                        {
-                            if (player.QuestItems.Contains(item))
-                            {
-                                questItem = player.QuestItems.Find(x => x == item);
-
-                                if (questItem.Count < quest.QuestItems.Find(x => x.Item1 == questItem).Item2)
-                                {
-                                    loot.Add(item);
-                                    questItem.Count += 1;
-                                }
-                            }
-                            else
-                            {
-                                loot.Add(item);
-                                item.Count = 1;
-                                player.QuestItems.Add(item);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (activeQuests.Count > 0)
-            {
-                Tuple<Enemy, int> trackedEnemy;
-
-                trackedEnemy = enemyTracker.Find(x => x.Item1 == enemy);
-                
-                if (trackedEnemy != null)
-                {
-                    enemyTracker[enemyTracker.FindIndex(x => x.Item1 == enemy)] = new Tuple<Enemy, int>(enemy, trackedEnemy.Item2 + 1);
-                }
-            }
-
-            Util.WriteColorString("@15|\nYou won figth against @9|" + enemy.Name + "\n");
-
-            /*Util.Write("\nYou won figth against ");
-            Util.WriteLine(enemy.Name + "", ConsoleColor.Blue);*/
-
-            Util.WriteColorString("@15|You earned @4|" + enemy.Experience + " experience\n");
-
-            /*Util.Write("You earned ");
-            Util.WriteLine(enemy.Experience + " experience", ConsoleColor.DarkRed);*/
-
-            Util.WriteColorString("@15|You gained @6|" + gold + " gold\n");
-
-            /*Util.Write("You gained ");
-            Util.WriteLine(gold + " gold", ConsoleColor.DarkYellow);*/
-
-            if (loot.Count > 0)
-            {
-                Util.WriteColorString("@15|You @8|looted@15|:\n");
-
-                /*Util.Write("You ");
-                Util.Write("looted", ConsoleColor.DarkGray);
-                Util.WriteLine(":");*/
-            }
-            foreach (var item in loot)
-            {
-                item.Info();
-            }
-
-            if (player.CalculateStats())
-            {
-                Util.WriteColorString("@15|\nYou advanced to @4|level + " + player.Level + "\n");
-
-                /*Util.Write("\nYou advanced to ");
-                Util.WriteLine("level " + player.Level, ConsoleColor.DarkRed);*/
-
-                Util.WriteColorString("@15|You have regained your @12|health\n");
-
-                /*Util.Write("You have regained your ");
-                Util.WriteLine("health", ConsoleColor.Red);*/
-
-                player.Health = player.MaxHealth;
-            }
-
-            Util.WriteLine("\n0. Exit");
-
-            while (true)
-            {
-                int decision = Util.NumpadKeyToInt(Console.ReadKey());
-
-                if (decision == 0)
-                {
-                    break;
-                }
-            }
-        }
-
-        void PlayerLosingPenalty(Enemy enemy)
-        {
-            double runawayHealth = 0.25;
-            int lostExperience = Convert.ToInt32((player.Experience / 100.0) * percentageExperiencePenalty);
-
-            Util.WriteColorString("@9|\n" + enemy.Name + " @15| defeated you\n");
-
-            /*Util.Write("\n" + enemy.Name + " ", ConsoleColor.Blue);
-            Util.WriteLine("defeated you");*/
-
-            Util.WriteColorString("@15|You ran away with little to no @12|health\n");
-
-            /*Util.Write("You ran away with little to no ");
-            Util.WriteLine("health", ConsoleColor.Red);*/
-
-            Util.WriteColorString("@15|\nYou lost @4|" + lostExperience + " experience\n");
-
-            /*Util.Write("\nYou lost ");
-            Util.WriteLine(lostExperience + " experience", ConsoleColor.DarkRed);*/
-
-            player.Experience -= lostExperience;
-            player.Health = Convert.ToInt32(player.MaxHealth * runawayHealth);
-
-            if (player.CalculateStats())
-            {
-                Util.WriteColorString("@15|\nYou dropped to @4|level " + player.Level + "\n");
-
-                /*Util.Write("\nYou dropped to ");
-                Util.WriteLine("level " + player.Level, ConsoleColor.DarkRed);*/
-            }
-
-            Util.WriteLine("0. Exit");
-
-            while (true)
-            {
-                int decision = Util.NumpadKeyToInt(Console.ReadKey());
-
-                if (decision == 0)
-                {
-                    break;
-                }
-            }
-        }
 
         void GenerateHelmets()
         {
@@ -1915,8 +163,8 @@ namespace VeganRPG
             consumables.Add(new Consumable(2, "Tobacco Leaf", 0, 2));
             consumables.Add(new Consumable(4, "Apple Juice", 15, 3));
 
-            consumables.Add(new Consumable(4, "Black Widow Venom", 0, 20));
-            consumables.Add(new Consumable(4, "Black Widow Leg", 150, 0));
+            consumables.Add(new Consumable(4, "Black Widow's Venom", 0, 20));
+            consumables.Add(new Consumable(4, "Black Widow's Leg", 150, 0));
 
             consumables.Add(new Consumable(4, "White Beans", 35, 0));
             consumables.Add(new Consumable(5, "Kidney Beans", 50, 0));
@@ -1986,7 +234,7 @@ namespace VeganRPG
         void GenerateEnemies()
         {
             #region Farm
-            List<Tuple<Item, int>> antLoot = new List<Tuple<Item, int>> 
+            List<Tuple<Item, int>> antLoot = new List<Tuple<Item, int>>
             {
                 new Tuple<Item, int>(items.Find(x => x.Name == "Grain of Rice"), 2),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Tomato Seed"), 3)
@@ -1994,7 +242,7 @@ namespace VeganRPG
             Enemy ant = new Enemy("Ant", 3, new Tuple<int, int>(0, 1), -60,
                 1, new Tuple<int, int>(0, 0), antLoot);
 
-            List<Tuple<Item, int>> bugLoot = new List<Tuple<Item, int>> 
+            List<Tuple<Item, int>> bugLoot = new List<Tuple<Item, int>>
             {
                 new Tuple<Item, int>(items.Find(x => x.Name == "Grain of Rice"), 2),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Tomato Seed"), 3),
@@ -2005,8 +253,8 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> spiderLoot = new List<Tuple<Item, int>>
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Spider Web"), 1),
-                new Tuple<Item, int>(items.Find(x => x.Name == "Spider Leg"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Spider's Web"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Spider's Leg"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Tomato Seed"), 2),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Pumpkin Seed"), 4),
@@ -2015,7 +263,7 @@ namespace VeganRPG
             Enemy spider = new Enemy("Spider", 8, new Tuple<int, int>(0, 1), -60,
                 3, new Tuple<int, int>(0, 0), spiderLoot);
 
-            List<Tuple<Item, int>> cockroachLoot = new List<Tuple<Item, int>>() 
+            List<Tuple<Item, int>> cockroachLoot = new List<Tuple<Item, int>>()
             {
                 new Tuple<Item, int>(items.Find(x => x.Name == "Pumpkin Seed"), 3),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Chia Seed"), 3)
@@ -2026,7 +274,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> mantisLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Mantis Antennae"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Mantis' Antennae"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Peanut"), 3),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Tobacco Leaf"), 5),
@@ -2037,7 +285,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> frogLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Frog Venom"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Frog's Venom"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Peanut"), 3),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Walnut"), 3),
@@ -2051,7 +299,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> snakeLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Snake Venom"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Snake's Venom"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Walnut"), 3),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Tobacco Leaf"), 3),
@@ -2069,8 +317,8 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> blackWidowLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Black Widow Venom"), 1),
-                new Tuple<Item, int>(items.Find(x => x.Name == "Black Widow Leg"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Black Widow's Venom"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Black Widow's Leg"), 1),
             };
             Enemy blackWidow = new Enemy("Black Widow", 175, new Tuple<int, int>(2, 4), -30,
                 250, new Tuple<int, int>(0, 0), blackWidowLoot, true);
@@ -2078,7 +326,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> bloodSpiderLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Blood Spider Blood"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Blood Spider's Blood"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "White Beans"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Kidney Beans"), 6),
@@ -2092,7 +340,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> tarantulaLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Tarantula Egg"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Tarantula's Egg"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "White Beans"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Kidney Beans"), 5),
@@ -2100,7 +348,7 @@ namespace VeganRPG
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Leather Boots"), 8),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Leather Helmet"), 8),
-                new Tuple<Item, int>(items.Find(x => x.Name == "Leather Legs"), 10),              
+                new Tuple<Item, int>(items.Find(x => x.Name == "Leather Legs"), 10),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Quilted Helmet"), 13),
             };
             Enemy tarantula = new Enemy("Tarantula", 90, new Tuple<int, int>(2, 5), -40,
@@ -2121,7 +369,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> crabSpiderLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Crab Spider Eye"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Crab Spider's Eye"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Crab Spider Leg"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "White Beans"), 5),
@@ -2154,8 +402,8 @@ namespace VeganRPG
                 new Tuple<Item, int>(items.Find(x => x.Name == "Aubergine"), 6),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Courgette"), 9),
 
-                new Tuple<Item, int>(items.Find(x => x.Name == "Worn Bronze Boots"), 7),               
-                new Tuple<Item, int>(items.Find(x => x.Name == "Worn Bronze Helmet"), 10),        
+                new Tuple<Item, int>(items.Find(x => x.Name == "Worn Bronze Boots"), 7),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Worn Bronze Helmet"), 10),
             };
             Enemy squirrel = new Enemy("Squirrel", 200, new Tuple<int, int>(3, 6), 0,
                 160, new Tuple<int, int>(5, 15), squirrelLoot);
@@ -2190,7 +438,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> foxLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Fox Tail"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Fox's Tail"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Aubergine"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Courgette"), 4),
@@ -2205,7 +453,7 @@ namespace VeganRPG
 
             List<Tuple<Item, int>> wolfLoot = new List<Tuple<Item, int>>()
             {
-                new Tuple<Item, int>(items.Find(x => x.Name == "Wolf Paw"), 1),
+                new Tuple<Item, int>(items.Find(x => x.Name == "Wolf's Paw"), 1),
 
                 new Tuple<Item, int>(items.Find(x => x.Name == "Aubergine"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Pear"), 5),
@@ -2369,7 +617,7 @@ namespace VeganRPG
                 new Tuple<Item, int>(items.Find(x => x.Name == "Cruelty-Free Leather Armor"), 11),
                 new Tuple<Item, int>(items.Find(x => x.Name == "BIO Wooden Sword"), 15),
                 new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Boots"), 20),
-                new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Helmet"), 25)              
+                new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Helmet"), 25)
             };
             Enemy cancerPatient = new Enemy("Cancer Patient", 2000, new Tuple<int, int>(40, 60), 20,
                 2000, new Tuple<int, int>(30, 70), cancerPatientLoot);
@@ -2385,7 +633,7 @@ namespace VeganRPG
                 new Tuple<Item, int>(items.Find(x => x.Name == "Blueberry"), 4),
                 new Tuple<Item, int>(items.Find(x => x.Name == "Smoked Paprika"), 6),
 
-                new Tuple<Item, int>(items.Find(x => x.Name == "Cruelty-Free Leather Armor"), 6),            
+                new Tuple<Item, int>(items.Find(x => x.Name == "Cruelty-Free Leather Armor"), 6),
                 new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Boots"), 9),
                 new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Helmet"), 12),
                 new Tuple<Item, int>(items.Find(x => x.Name == "BIO Leather Legs"), 15),
@@ -2596,7 +844,7 @@ namespace VeganRPG
                 bananaSpider,
                 crabSpider,
                 orangeSpider,
-                
+
                 squirrel,
                 owl,
                 hedgeHog,
@@ -2648,12 +896,12 @@ namespace VeganRPG
             #region 0 - 11
             AbilityEffects luckyDayEffects = new AbilityEffects(0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 6, 0, 0, 0);
-            Ability luckyDay = new Ability("Lucky Day", "@9|Enemy @15|gives up to @6|6 @15|more @6|gold",
+            Ability luckyDay = new Ability("Lucky Day", "@15|You can loot up to @6|6 @15|more @6|gold @15|from the @9|enemies",
                 1, 3, 999, 2, luckyDayEffects);
 
             AbilityEffects strongHandEffects = new AbilityEffects(0, 0, 3, 5, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            Ability strongHand = new Ability("Strong Hand", "@15|Increases your @13|damage @15|range by @13|1 @15|to @13|5 @15|for 2 turns",
+            Ability strongHand = new Ability("Strong Hand", "@15|Widens your @13|damage @15|range by @13|1 @15|to @13|5 @15|for 2 turns",
                 2, 6, 2, 2, strongHandEffects);
 
             AbilityEffects doubleShotEffects = new AbilityEffects(0, 0, 0, 0, 1,
@@ -2663,28 +911,28 @@ namespace VeganRPG
 
             AbilityEffects iKnowBetterEffects = new AbilityEffects(0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 2);
-            Ability iKnowBetter = new Ability("I Know Better", "@9|Enemy @15|give @4|3 times @15|the @4|experience",
+            Ability iKnowBetter = new Ability("I Know Better", "@15|Defeating an @9|enemy @15|gives @4|3 times @15|the @4|experience",
                 4, 8, 999, 6, iKnowBetterEffects);
 
             AbilityEffects crippleEffects = new AbilityEffects(0, 0, 0, 0, 0,
                 0, 0, -12, -24, 0, 0, 0, 0, 0, 0);
-            Ability cripple = new Ability("Cripple", "@15|Decrease @9|enemy @13|damage @15|by @13|12 @15|to @13|24 @15|for 2 turns",
+            Ability cripple = new Ability("Cripple", "@15|Narrow your @9|enemy's @13|damage range @15|by @13|12 @15|to @13|24 @15|for 2 turns",
                 5, 11, 2, 6, crippleEffects);
 
             AbilityEffects aegisEffects = new AbilityEffects(200, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            Ability aegis = new Ability("Aegis", "@15|Summon magical shield, giving yourself @5|200 defense @15|for 5 turns",
+            Ability aegis = new Ability("Aegis", "@15|Summon a magical shield, giving yourself @5|200 defense @15|for 5 turns",
                 7, 13, 5, 6, aegisEffects);
 
             AbilityEffects bowEffects = new AbilityEffects(0, 0, 0, 100, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            Ability bow = new Ability("Bow", "@15|Shoot @9|enemy @15|using bow, dealing up to @13|100 damage",
+            Ability bow = new Ability("Bow", "@15|Shoot an @9|enemy @15|using a bow, dealing up to @13|100 damage",
                 8, 13, 1, 10, bowEffects);
 
             AbilityEffects breakTheirMindEffects = new AbilityEffects(0, 0, 0, 0, 0,
                 -40, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            Ability breakTheirMind = new Ability("Break Their Mind", "@15|Make @9|enemy @15|mad, lowering their @5|defense @15|by @5|40 @15|for 6 turns",
-                8, 13, 6, 12, breakTheirMindEffects);            
+            Ability breakTheirMind = new Ability("Break Their Minds", "@15|Make your @9|enemy @15|mad, lowering their @5|defense @15|by @5|40 @15|for 6 turns",
+                8, 13, 6, 12, breakTheirMindEffects);
 
             AbilityEffects thunderLordEffects = new AbilityEffects(0, 0, 100, 100, 0,
                0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -2693,29 +941,29 @@ namespace VeganRPG
 
             AbilityEffects rainEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, 0, 0, 0, 0, 0, 4, 0, 0);
-            Ability rain = new Ability("Rain", "@9|Enemy @15|give @6|5 times @15|more @6|gold",
+            Ability rain = new Ability("Rain", "@15| Loot up @6|5 times @15|more @6|gold @15|from an @9|enemy",
                 11, 15, 999, 15, rainEffects);
 
             AbilityEffects newToTheGameEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, 0, 0, 0, 0, 0, 0, 500, 0);
-            Ability newToTheGame = new Ability("New To The Game", "@9|Enemy @15|gives @4|500 @15|more @4|experience",
+            Ability newToTheGame = new Ability("New To The Game", "@15|Defeating an @9|enemy @15|gives you @4|500 @15|more @4|experience",
                 11, 15, 999, 15, newToTheGameEffects);
             #endregion
 
             #region 13 - 19
             AbilityEffects godBlessingEffects = new AbilityEffects(0, 4, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-            Ability godBlessing = new Ability("God Blessing", "@15|Pray to the God, increasing your @5|defense 5 times @15|for 7 turns",
+            Ability godBlessing = new Ability("God's Blessing", "@15|Pray to the God, increasing your @5|defense 5 times @15|for 7 turns",
                 13, 20, 7, 20, godBlessingEffects);
 
             AbilityEffects hitOrMissEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, -50, -50, 0, 0, 0, 0, 0, 0);
-            Ability hitOrMiss = new Ability("Hit or Miss", "@9|Enemy @15|does @13|50 @15|less @13|damage @15|in 5 turns",
+            Ability hitOrMiss = new Ability("Hit or Miss", "@9|Enemy @15|does @13|50 @15|less @13|damage @15|for 5 turns",
                 15, 21, 5, 20, hitOrMissEffects);
 
             AbilityEffects learningExperienceEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
-            Ability learningExperience = new Ability("Learning Experience", "@9|Enemy @15|gives @4|2 times @15|the @4|experience",
+            Ability learningExperience = new Ability("Learning Experience", "@15|Defeating an @9|enemy @15|gives @4|2 times @15|the @4|experience",
                 15, 21, 999, 25, learningExperienceEffects);
 
             AbilityEffects defenseLessEffects = new AbilityEffects(0, 0, 0, 0, 0,
@@ -2730,7 +978,7 @@ namespace VeganRPG
 
             AbilityEffects doubleEdgeSwordEffects = new AbilityEffects(0, 0, 0, 0, 3,
                0, 0, 0, 0, 3, 0, 0, 0, 0, 0);
-            Ability doubleEdgeSword = new Ability("Double Edge Sword", "@15|Both @9|enemy @15|and you have @13|damage @15|multiplied by @13|4 @15|for 3 turns",
+            Ability doubleEdgeSword = new Ability("Double Edged Sword", "@15|Both @9|enemy @15|and you have @13|damage @15|multiplied by @13|4 @15|for 3 turns",
                 19, 25, 3, 40, doubleEdgeSwordEffects);
 
             AbilityEffects berserkEffects = new AbilityEffects(-150, 0, 20, 200, 0,
@@ -2749,19 +997,19 @@ namespace VeganRPG
             AbilityEffects betterVersionEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, 0, 0, 0, 0, 0, 2, 0, 2);
             Ability betterVersion = new Ability("Better Version",
-                "@9|Enemy @15|gives @6|3 times @15|the @6|gold @15|and @4|experience",
+                "@15|Defeating an @9|enemy @15|gives @6|3 times @15|the @6|gold @15|and @4|experience",
                 22, 29, 999, 75, betterVersionEffects);
 
             AbilityEffects fasterThanEverEffects = new AbilityEffects(0, 0, 0, 0, 11,
                0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
             Ability fasterThanEver = new Ability("Faster Than Ever",
-                "@15|Hit @9|enemy @13|12 times @15|in one turn",
+                "@15|Hit an @9|enemy @13|12 times @15|in one turn",
                 26, 50, 1, 80, fasterThanEverEffects);
 
             AbilityEffects blindEffects = new AbilityEffects(0, 0, 0, 0, 0,
                0, 0, -400, 0, 0, 0, 0, 0, 0, 0);
             Ability blind = new Ability("Blind",
-                "@15|Blind @9|enemy@15|, decreasing their @13|minimum damage @15|by @13|400 @15|for 4 turns",
+                "@15|Blind an @9|enemy@15|, decreasing their @13|minimum damage @15|by @13|400 @15|for 4 turns",
                 26, 50, 4, 80, blindEffects);
 
             AbilityEffects recoilEffects = new AbilityEffects(0, 0, -200, 400, 0,
@@ -2805,7 +1053,7 @@ namespace VeganRPG
 
                 hitOrMiss,
                 learningExperience,
-                defenseLess,          
+                defenseLess,
                 square,
                 doubleEdgeSword,
                 berserk,
@@ -2827,20 +1075,20 @@ namespace VeganRPG
         void GenerateQuestItems()
         {
             #region Farm
-            QuestItem spiderWeb = new QuestItem("Spider Web");
+            QuestItem spiderWeb = new QuestItem("Spider's Web");
 
-            QuestItem snakeVenom = new QuestItem("Snake Venom");
-            QuestItem frogVenom = new QuestItem("Frog Venom");
+            QuestItem snakeVenom = new QuestItem("Snake's Venom");
+            QuestItem frogVenom = new QuestItem("Frog's Venom");
 
-            QuestItem tarantulaEgg = new QuestItem("Tarantula Egg");
-            QuestItem crabSpiderEye = new QuestItem("Crab Spider Eye");
+            QuestItem tarantulaEgg = new QuestItem("Tarantula's Egg");
+            QuestItem crabSpiderEye = new QuestItem("Crab Spider's Eye");
             QuestItem orangeBlob = new QuestItem("Orange Blob");
 
-            QuestItem spiderLeg = new QuestItem("Spider Leg");
-            QuestItem mantisAntennae = new QuestItem("Mantis Antennae");
-            QuestItem bloodSpiderBlood = new QuestItem("Blood Spider Blood");
-            QuestItem foxTail = new QuestItem("Fox Tail");
-            QuestItem wolfPaw = new QuestItem("Wolf Paw");
+            QuestItem spiderLeg = new QuestItem("Spider's Leg");
+            QuestItem mantisAntennae = new QuestItem("Mantis' Antennae");
+            QuestItem bloodSpiderBlood = new QuestItem("Blood Spider's Blood");
+            QuestItem foxTail = new QuestItem("Fox's Tail");
+            QuestItem wolfPaw = new QuestItem("Wolf's Paw");
             #endregion
 
             #region Amfurce
@@ -2890,7 +1138,7 @@ namespace VeganRPG
             List<Tuple<QuestItem, int>> emptyQuestItems = new List<Tuple<QuestItem, int>>();
             List<Item> emptyRewards = new List<Item>();
 
-            Quest peterProblem = new Quest("Peter Problem", 
+            Quest peterProblem = new Quest("Peter's Problem",
                 "@15|Ask @9|Peter @15|about the @10|place\n",
                 emptyEnemies, emptyQuestItems, 0, 10, emptyRewards, true);
 
@@ -2898,14 +1146,14 @@ namespace VeganRPG
             {
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Ant"), 6)
             };
-            Quest antVacuum = new Quest("Ant Vacuum", 
-                "@15|I would give you vacuum cleaner, if I would have one\n",
+            Quest antVacuum = new Quest("Ant Vacuum",
+                "@15|I would give you a vacuum cleaner, if I would have one\n",
                 antVacuumEnemies, emptyQuestItems,
                 10, 20, emptyRewards);
 
             List<Tuple<QuestItem, int>> inTheWebQuestItems = new List<Tuple<QuestItem, int>>()
             {
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name== "Spider Web"), 4)
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name== "Spider's Web"), 4)
             };
             List<Item> inTheWebRewards = new List<Item>()
             {
@@ -2921,14 +1169,14 @@ namespace VeganRPG
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Cockroach"), 7)
             };
             Quest filthyCockroaches = new Quest("Filthy Cockroaches",
-                "@15|These stingy @9|insects @15|stole half of my @6|coins\n",
+                "@15|These stingy @9|insects @15|stole all of my @6|coins\n",
                 filthyCockroachesEnemies, emptyQuestItems,
                 40, 0, emptyRewards);
 
             List<Tuple<QuestItem, int>> venomousFarmItems = new List<Tuple<QuestItem, int>>()
             {
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Snake Venom"), 4),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Frog Venom"), 4)
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Snake's Venom"), 4),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Frog's Venom"), 4)
             };
             List<Item> venomousFarmRewards = new List<Item>()
             {
@@ -2951,7 +1199,7 @@ namespace VeganRPG
                 50, 0, emptyRewards);
 
             Quest myBrotherHenry = new Quest("My Brother Henry",
-                "@15|Please talk to @9|Henry@15|, when he arrives. He knows more about that sitaution\n",
+                "@15|Please talk to @9|Henry@15|, when he arrives.\n",
                 emptyEnemies, emptyQuestItems,
                 0, 0, emptyRewards, true);
 
@@ -2964,14 +1212,14 @@ namespace VeganRPG
                 items.Find(x => x.Name == "Wooden Sword"),
             };
             Quest bloodyDen = new Quest("Bloody Den",
-                "@15|You gonna give them hell\n",
+                "@15|You gonna give them a hell\n",
                 bloodyDenEnemies, emptyQuestItems,
                 50, 0, bloodyDenRewards);
 
             List<Tuple<QuestItem, int>> spiderKingItems = new List<Tuple<QuestItem, int>>()
             {
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Tarantula Egg"), 4),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Crab Spider Eye"), 4),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Tarantula's Egg"), 4),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Crab Spider's Eye"), 4),
                 new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Orange Blob"), 4),
             };
             List<Item> spiderKingRewards = new List<Item>()
@@ -3013,17 +1261,17 @@ namespace VeganRPG
                 items.Find(x => x.Name == "Worn Bronze Helmet"),
             };
             Quest laboursOfHercules = new Quest("Labours of Hercules",
-                "@15|You need to clean the @2|shed properly\n",
+                "@15|You'd need to clean the @2|shed properly\n",
                 laboursOfHerculesEnemies, emptyQuestItems,
                 150, 2000, laboursOfHerculesRewards);
 
             List<Tuple<QuestItem, int>> farmFaunaItems = new List<Tuple<QuestItem, int>>()
             {
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Spider Leg"), 3),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Mantis Antennae"), 4),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Blood Spider Blood"), 5),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Fox Tail"), 6),
-                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Wolf Paw"), 7),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Spider's Leg"), 3),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Mantis' Antennae"), 4),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Blood Spider's Blood"), 5),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Fox's Tail"), 6),
+                new Tuple<QuestItem, int>(questItems.Find(x => x.Name == "Wolf's Paw"), 7),
             };
             List<Item> farmFaunaRewards = new List<Item>()
             {
@@ -3187,7 +1435,7 @@ namespace VeganRPG
             #region Farm
             Area basement = new Area("Basement", new List<Tuple<Enemy, int>>
             {
-                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Cockroach"), 10),
+                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Cockroach"), 8),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Spider"), 4),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Bug"), 3),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Ant"), 1)
@@ -3195,7 +1443,7 @@ namespace VeganRPG
 
             Area shed = new Area("Shed", new List<Tuple<Enemy, int>>
             {
-                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Snake"), 10),
+                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Snake"), 9),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Frog"), 5),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Mantis"), 3),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Cockroach"), 1)
@@ -3274,7 +1522,7 @@ namespace VeganRPG
 
             Area forbiddenArea = new Area("Forbidden Area", new List<Tuple<Enemy, int>>
             {
-                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Slaughterhouse Owner"), 4),
+                new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Slaughterhouse Owner"), 3),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Poacher"), 2),
                 new Tuple<Enemy, int>(enemies.Find(x => x.Name == "Hunter"), 1),
             });
@@ -3329,17 +1577,17 @@ namespace VeganRPG
             string peterPlace = "@15|I love this @10|place@15|, but my @2|basement @15|got ruined, because of these @9|insects";
             List<Tuple<Quest, Quest>> peterQuests = new List<Tuple<Quest, Quest>>()
             {
-                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Ant Vacuum"), quests.Find(x => x.Name == "Peter Problem")),
+                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Ant Vacuum"), quests.Find(x => x.Name == "Peter's Problem")),
                 new Tuple<Quest, Quest>(quests.Find(x => x.Name == "In The Web"), quests.Find(x => x.Name == "Ant Vacuum"))
             };
-            Merchant peter = new Merchant("Peter", peterHello, peterWork, peterPlace, 
+            Merchant peter = new Merchant("Peter", peterHello, peterWork, peterPlace,
                 peterQuests, 1.0,
-                null, quests.Find(x => x.Name == "Peter Problem"));
+                null, quests.Find(x => x.Name == "Peter's Problem"));
 
 
-            string adamHello = "@15|Hello, glad to see new face on our @10|farm";
-            string adamWork = "@15|I have little @6|store @15|over there, take a look inside\n\n";
-            string adamPlace = "@15|Life here was great up until last year\n" +
+            string adamHello = "@15|Hello, glad to see a new face on our @10|farm";
+            string adamWork = "@15|I have a little @6|store @15|over there, take a look inside\n\n";
+            string adamPlace = "@15|Life here was great up until the last year\n" +
                 "Suddenly all these things started to come from the @2|forest";
             List<Tuple<Quest, Quest>> adamQuests = new List<Tuple<Quest, Quest>>()
             {
@@ -3361,7 +1609,7 @@ namespace VeganRPG
 
 
             string marcusHello = "Glad to see you";
-            string marcusWork = "@15|I @6|work @15|on field, I can sell you some @14|crops\n\n";
+            string marcusWork = "@15|I @6|work @15|on the field, I can sell you some @14|crops\n\n";
             string marcusPlace = "@15|Someone needs to finally get rid of these @9|insects";
             List<Tuple<Quest, Quest>> marcusQuests = new List<Tuple<Quest, Quest>>()
             {
@@ -3372,12 +1620,12 @@ namespace VeganRPG
             };
             List<Item> marcusItems = new List<Item>()
             {
-                items.Find(x => x.Name == "Millet"),             
+                items.Find(x => x.Name == "Millet"),
                 items.Find(x => x.Name == "Tobacco Leaf"),
                 items.Find(x => x.Name == "Apple Juice"),
                 items.Find(x => x.Name == "Kidney Beans"),
                 items.Find(x => x.Name == "Aubergine"),
-                items.Find(x => x.Name == "Courgette"),          
+                items.Find(x => x.Name == "Courgette"),
                 items.Find(x => x.Name == "Pear")
             };
             Shopkeeper marcus = new Shopkeeper("Marcus", marcusHello, marcusWork, marcusPlace,
@@ -3385,15 +1633,15 @@ namespace VeganRPG
                 quests.Find(x => x.Name == "Venomous Farm"), null);
 
 
-            string henryHello = "@15|Hello, my brother @9|Marcus @15|told me about you";
-            string henryWork = "@15|I sell beatufily crafted @8|bronze set @15|from neighbour @10|city\n\n";
-            string henryPlace = "@9|Marcus @15|said you are ready and willing to face danger coming from the @2|forest\n" +
+            string henryHello = "@15|Hello, my brother @9|Marcus @15|has told me about you";
+            string henryWork = "@15|I sell beatufily crafted @8|bronze set @15|from the neighbour @10|city\n\n";
+            string henryPlace = "@9|Marcus @15|said you are ready and willing to face the danger coming from the @2|forest\n" +
                 "@15|I can prepare you for that fight, but beware there were many before you";
             List<Tuple<Quest, Quest>> henryQuests = new List<Tuple<Quest, Quest>>()
             {
-                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Back In Time"), 
+                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Back In Time"),
                     quests.Find(x => x.Name == "My Brother Henry")),
-                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Labours of Hercules"), 
+                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Labours of Hercules"),
                     quests.Find(x => x.Name == "My Brother Henry")),
                 new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Farm Fauna"),
                     quests.Find(x => x.Name == "Labours of Hercules")),
@@ -3401,7 +1649,7 @@ namespace VeganRPG
                     quests.Find(x => x.Name == "Farm Fauna")),
             };
             List<Item> henryItems = new List<Item>()
-            {             
+            {
                 items.Find(x => x.Name == "Bronze Helmet"),
                 items.Find(x => x.Name == "Bronze Armor"),
                 items.Find(x => x.Name == "Bronze Legs"),
@@ -3419,7 +1667,7 @@ namespace VeganRPG
             string samPlace = "@15|If you want to be respected in @10|Amfurce @15|\nyou have to show respect towards @9|animals";
             List<Tuple<Quest, Quest>> samQuests = new List<Tuple<Quest, Quest>>()
             {
-                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Intrusive Thoughts"), 
+                new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Intrusive Thoughts"),
                     quests.Find(x => x.Name == "Vegan Revolution")),
                 new Tuple<Quest, Quest>(quests.Find(x => x.Name == "Past You"),
                     quests.Find(x => x.Name == "Intrusive Thoughts")),
@@ -3444,7 +1692,7 @@ namespace VeganRPG
                 samQuests, 2.0, samItems,
                 null, quests.Find(x => x.Name == "Vegan Revolution"));
 
-            string ericHello = "You showed us your value";
+            string ericHello = "You proved us your value";
             string ericWork = "@15|Someone needs to keep all of this stuff\n\n";
             string ericPlace = "@15|Beatiful @10|city@15|, less beatiful @9|people";
             List<Tuple<Quest, Quest>> ericQuests = new List<Tuple<Quest, Quest>>()
@@ -3528,11 +1776,11 @@ namespace VeganRPG
                 npcs.Find(x => x.Name == "Peter"),
                 npcs.Find(x => x.Name == "Adam"),
                 npcs.Find(x => x.Name == "Marcus"),
-                npcs.Find(x => x.Name == "Henry"),        
+                npcs.Find(x => x.Name == "Henry"),
             };
             List<Tuple<Area, Quest>> farmAreas = new List<Tuple<Area, Quest>>()
             {
-                new Tuple<Area, Quest>(areas.Find(x => x.Name == "Basement"), quests.Find(x => x.Name == "Peter Problem")),
+                new Tuple<Area, Quest>(areas.Find(x => x.Name == "Basement"), quests.Find(x => x.Name == "Peter's Problem")),
                 new Tuple<Area, Quest>(areas.Find(x => x.Name == "Shed"), quests.Find(x => x.Name == "In The Web")),
                 new Tuple<Area, Quest>(areas.Find(x => x.Name == "Spider Den"), quests.Find(x => x.Name == "White Widow")),
                 new Tuple<Area, Quest>(areas.Find(x => x.Name == "Forest"), quests.Find(x => x.Name == "My Brother Henry")),
@@ -3543,7 +1791,7 @@ namespace VeganRPG
                 new Tuple<Area, Quest>(areas.Find(x => x.Name == "Witch Hut"), quests.Find(x => x.Name == "Witch Hunt"))
             };
 
-            City farm = new City("Farm", quests.Find(x => x.Name == "Peter Problem"), 
+            City farm = new City("Farm", quests.Find(x => x.Name == "Peter's Problem"),
                 quests.Find(x => x.Name == "Witch Hunt"), amfurce,
                 farmNpcs, farmAreas, temporaryFarmAreas);
             #endregion

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
+// List of colors to use:
 // 2 DARKGREEN - Stats, Areas
 // 4 DARKRED - Save, Load, Experience, Level
 // 5 DARKMAGENTA - Defense
@@ -21,6 +20,9 @@ namespace VeganRPG
 {
     class Util
     { 
+        /// <summary>
+        /// Writes text in a given color.
+        /// </summary>
         public static void Write(string text, ConsoleColor color = ConsoleColor.White)
         {
             Console.ForegroundColor = color;
@@ -30,6 +32,9 @@ namespace VeganRPG
             Console.ResetColor();
         }
 
+        /// <summary>
+        /// Writes line of text in a given color.
+        /// </summary>
         public static void WriteLine(string text, ConsoleColor color = ConsoleColor.White)
         {
             Console.ForegroundColor = color;
@@ -39,15 +44,16 @@ namespace VeganRPG
             Console.ResetColor();
         }
 
+        /// <summary>
+        /// Writes a text where every letter has a different color.
+        /// </summary>
         public static void WriteMulticolor(string text)
         {
             ConsoleColor color;
             for (int i = 0; i < text.Length; ++i)
             {
                 if ((i % 16) != 0)
-                {
-                    color = (ConsoleColor)(i % 16);
-                }
+                color = (ConsoleColor)(i % 16);
                 else
                 {
                     color = (ConsoleColor)((i + 1) % 16);
@@ -57,15 +63,21 @@ namespace VeganRPG
             }
         }
 
+        /// <summary>
+        /// Writes a color text.
+        /// Text has to properly formatted before passing to the function.
+        /// Add @COLOR_NUMBER| to colorize a text.
+        /// Text must start with a color.
+        /// </summary>
+        /// <param name="text">Formatted string</param>
+
         public static void WriteColorString(string text)
         {
             List<Tuple<string, int>> coloredStringList = new List<Tuple<string, int>>();
             List<string> stringList;
 
             if (!text.Contains('@'))
-            {
-                Util.Write(text);
-            }
+            Write(text);
             else
             {
                 stringList = text.Split('@').ToList();
@@ -76,7 +88,7 @@ namespace VeganRPG
 
                 foreach (var str in stringList)
                 {
-                    colorString = str.Substring(0, str.IndexOf('|'));
+                    colorString = str[..str.IndexOf('|')];
                     coloredString = str.Substring(str.IndexOf('|') + 1, str.Length - colorString.Length - 1);
 
                     coloredStringList.Add(new Tuple<string, int>(coloredString, Convert.ToInt32(colorString)));
@@ -85,18 +97,14 @@ namespace VeganRPG
                 foreach (var str in coloredStringList)
                 {
                     if (str.Item2 == 15)
-                    {
-                        Util.Write(str.Item1);
-                    }
+                        Write(str.Item1);
                     else
-                    {
-                        Util.Write(str.Item1, (ConsoleColor)str.Item2);
-                    }
+                        Write(str.Item1, (ConsoleColor)str.Item2);
                 }
             }
         }
 
-        public static int NumpadKeyToInt(ConsoleKeyInfo key)
+        public static int KeyboardKeyToInt(ConsoleKeyInfo key)
         {
             return key.Key switch
             {
@@ -110,6 +118,17 @@ namespace VeganRPG
                 ConsoleKey.NumPad7 => 7,
                 ConsoleKey.NumPad8 => 8,
                 ConsoleKey.NumPad9 => 9,
+                ConsoleKey.D0 => 0,
+                ConsoleKey.D1 => 1,
+                ConsoleKey.D2 => 2,
+                ConsoleKey.D3 => 3,
+                ConsoleKey.D4 => 4,
+                ConsoleKey.D5 => 5,
+                ConsoleKey.D6 => 6,
+                ConsoleKey.D7 => 7,
+                ConsoleKey.D8 => 8,
+                ConsoleKey.D9 => 9,
+                ConsoleKey.E => -2,
                 _ => -1
             };
         }

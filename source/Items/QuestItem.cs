@@ -1,43 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace VeganRPG
+﻿namespace VeganRPG
 {
     class QuestItem : Item
     {
-        int count;
+        public int Count { get; set; }
 
         public QuestItem(string name)
         {
             Name = name;
 
-            count = 1;
+            Count = 1;
         }
 
         public override void Info(bool newLine = true)
         {
-            if (!newLine)
-            {
-                Util.WriteColorString("@12|" + Name);
-
-                /*Util.Write(Name, ConsoleColor.Red);*/
-            }
-            else
-            {
-                Util.WriteColorString("@12|" + Name + "\n");
-
-                /*Util.WriteLine(Name, ConsoleColor.Red);*/
-            }
+            if (!newLine)   Util.WriteColorString("@12|" + Name);
+            else            Util.WriteColorString("@12|" + Name + "\n");
         }
 
         public override int Value()
         {
             return 0;
-        }
-
-        public int Count { get => count; set => count = value; }
+        }     
     }
 }

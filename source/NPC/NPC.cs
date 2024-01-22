@@ -1,26 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VeganRPG
 {
     abstract class NPC
     {
-        string name;
+        public string Name { get; set; }
+       
+        public string HelloMessage { get; set; }
+        public string WorkMessage { get; set; }
+        public string PlaceMessage { get; set; }
 
-        string helloMessage;
-        string workMessage;
-        string placeMessage;
-
-        List<Tuple<Quest, Quest>> quests;
-
-        // Quest that has to be finished, before NPC shows up
-        Quest questToActivate;
+        internal List<Tuple<Quest, Quest>> Quests { get; set; }
 
         // Quest that finishes after talking with NPC about place
-        Quest placeQuest;
+        internal Quest PlaceQuest { get; set; }
+        // Quest that has to be finished, before NPC shows up
+        internal Quest QuestToActivate { get; set; }
+
 
         public NPC(string name, string helloMessage, string workMessage, string placeMessage, List<Tuple<Quest, Quest>> quests,
             Quest questToActivate = null, Quest placeQuest = null)
@@ -41,74 +38,50 @@ namespace VeganRPG
         {
             while (true)
             {
-                Console.Clear();
-
-                Util.WriteColorString("@15|Hello, I'm @9|" + Name + "\n");
-
-                Util.WriteLine("\nSay: ");
-                Util.WriteLine("1. Hello");
-
-                Util.WriteColorString("@15|2. Ask about his @6|work\n");
-
-                /*Util.Write("2. Ask about his ");
-                Util.WriteLine("work", ConsoleColor.DarkYellow);*/
-
-                Util.WriteColorString("@15|3. Ask about the @10|place\n");
-
-                /*Util.Write("3. Ask about the ");
-                Util.WriteLine("place", ConsoleColor.Green);*/
-
-                if (quests.Count > 0)
-                {
-                    Util.WriteColorString("@15|4. Ask if he has any @12|quest @15|for you\n");
-
-                    /*Util.Write("4. Ask if he has any ");
-                    Util.Write("quest ", ConsoleColor.Red);
-                    Util.WriteLine("for you");*/
-
-                    Util.WriteColorString("@15| 5. Tell him about @12| quest @15| that you finished\n");
-
-                    /*Util.Write("5. Tell him about ");
-                    Util.Write("quest ", ConsoleColor.Red);
-                    Util.WriteLine("that you finished");*/
-                }
-
-                Util.WriteLine("\n0. Exit");
-
-                var decision = Console.ReadKey();
-
-                if (decision.Key == ConsoleKey.NumPad0)
-                {
-                    break;
-                }
-                else if (decision.Key == ConsoleKey.NumPad1)
-                {
-                    Hello();
-                }
-                else if (decision.Key == ConsoleKey.NumPad2)
-                {
-                    Work(player);
-                }
-                else if (decision.Key == ConsoleKey.NumPad3)
-                {
-                    Place(player, activeQuests, enemyTracker);
-                }
-                else if (decision.Key == ConsoleKey.NumPad4 && quests.Count > 0)
-                {
-                    GiveQuests(player, activeQuests, enemyTracker);
-                }
-                else if (decision.Key == ConsoleKey.NumPad5 && quests.Count > 0)
-                {
-                    FinishQuests(player, activeQuests, enemyTracker);
-                }
+                TalkDisplayMenu();
+                if (TalkHandleInput(player, activeQuests, enemyTracker)) break;         
             }
+        }
+
+        private void TalkDisplayMenu()
+        {
+            Console.Clear();
+
+            Util.WriteColorString("@15|Hello, I'm @9|" + Name + "\n");
+
+            Util.WriteLine("\nSay: ");
+            Util.WriteLine("1. Hello");
+            Util.WriteColorString("@15|2. Ask about his @6|work\n");
+            Util.WriteColorString("@15|3. Ask about the @10|place\n");
+
+            if (Quests.Count > 0)
+            {
+                Util.WriteColorString("@15|4. Ask if he has any @12|quest @15|for you\n");
+                Util.WriteColorString("@15|5. Tell him about @12|quest @15|that you finished\n");
+            }
+
+            Util.WriteLine("\n0. Exit");
+        }
+
+        private bool TalkHandleInput(Player player, List<Quest> activeQuests, List<Tuple<Enemy, int>> enemyTracker)
+        {
+            var decision = Util.KeyboardKeyToInt(Console.ReadKey());
+
+            if (decision == 0)                          return true;
+            else if (decision == 1)                     Hello();
+            else if (decision == 2)                     Work(player);
+            else if (decision == 3)                     Place(player, activeQuests, enemyTracker);
+            else if (decision == 4 && Quests.Count > 0) GiveQuests(player, activeQuests, enemyTracker);
+            else if (decision == 5 && Quests.Count > 0) FinishQuests(player, activeQuests, enemyTracker);
+
+            return false;
         }
 
         public void Hello()
         {
             Console.Clear();
 
-            Util.WriteColorString(helloMessage);
+            Util.WriteColorString(HelloMessage);
 
             Console.ReadKey();
         }
@@ -119,17 +92,22 @@ namespace VeganRPG
         {
             Console.Clear();
 
-            if (placeQuest != null && activeQuests.Find(x => x == placeQuest) != null)
+            FinishPlaceQuest(player, activeQuests, enemyTracker);
+
+            Util.WriteColorString(PlaceMessage);
+
+            Console.ReadKey();
+        }
+
+        private void FinishPlaceQuest(Player player, List<Quest> activeQuests, List<Tuple<Enemy, int>> enemyTracker)
+        {
+            if (PlaceQuest != null && activeQuests.Find(x => x == PlaceQuest) != null)
             {
-                placeQuest.Finish(player, enemyTracker);
-                activeQuests.Remove(placeQuest);
+                PlaceQuest.Finish(player, enemyTracker);
+                activeQuests.Remove(PlaceQuest);
 
                 Console.Clear();
             }
-
-            Util.WriteColorString(placeMessage);
-
-            Console.ReadKey();
         }
 
         private void GiveQuests(Player player, List<Quest> activeQuests, List<Tuple<Enemy, int>> enemyTracker)
@@ -138,7 +116,7 @@ namespace VeganRPG
 
             bool anyQuestGiven = false;
 
-            foreach (var quest in quests)
+            foreach (var quest in Quests)
             {
                 if (player.QuestsDone.Find(x => x == quest.Item1) == null && activeQuests.Find(x => x == quest.Item1) == null)
                 {
@@ -147,7 +125,7 @@ namespace VeganRPG
                         quest.Item1.Start(activeQuests, enemyTracker);
                         quest.Item1.Info(player, enemyTracker);
 
-                        Util.Write("\n");
+                        Util.Write("\n\n");
 
                         anyQuestGiven = true;
                     }
@@ -167,7 +145,7 @@ namespace VeganRPG
             Console.Clear();
             List<Quest> completedQuests = new List<Quest>();
 
-            foreach (var quest in quests)
+            foreach (var quest in Quests)
             {
                 if (!quest.Item1.OutsideFinish)
                 {
@@ -202,17 +180,9 @@ namespace VeganRPG
             {
                 foreach (var quest in completedQuests)
                 {
-                    quests.RemoveAll(x => x.Item1 == quest);
+                    Quests.RemoveAll(x => x.Item1 == quest);
                 }
             }      
         }
-
-        public string Name { get => name; set => name = value; }
-        internal List<Tuple<Quest, Quest>> Quests { get => quests; set => quests = value; }
-        public string HelloMessage { get => helloMessage; set => helloMessage = value; }
-        public string WorkMessage { get => workMessage; set => workMessage = value; }
-        public string PlaceMessage { get => placeMessage; set => placeMessage = value; }
-        internal Quest PlaceQuest { get => placeQuest; set => placeQuest = value; }
-        internal Quest QuestToActivate { get => questToActivate; set => questToActivate = value; }
     }
 }

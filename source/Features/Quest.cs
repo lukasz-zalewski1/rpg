@@ -1,26 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VeganRPG
 {
     class Quest
     {
-        string name;
-        string description;
+        public string Name { get; set; }
+        public string Description { get; set; }
 
-        List<Tuple<Enemy, int>> questEnemies;
-        List<Tuple<QuestItem, int>> questItems;
+        internal List<Tuple<Enemy, int>> QuestEnemies { get; set; }
+        internal List<Tuple<QuestItem, int>> QuestItems { get; set; }
 
-        int goldReward;
-        int experienceReward;
-        List<Item> itemsReward;
-
+        public int ExperienceReward { get; set; }
+        public int GoldReward { get; set; }
+        internal List<Item> ItemsReward { get; set; }
+        
         // True, if quest finish takes place outside NPC that gave it
-        bool outsideFinish;
-
+        public bool OutsideFinish;
+       
         public Quest(string name, string description, 
             List<Tuple<Enemy, int>> questEnemies, List<Tuple<QuestItem, int>> questItems, 
             int goldReward, int experienceReward, List<Item> itemsReward, bool outsideFinish = false)
@@ -43,16 +41,12 @@ namespace VeganRPG
         {
             activeQuests.Add(this);
 
-            foreach (var enemy in questEnemies)
+            foreach (var enemy in QuestEnemies)
             {
                 enemyTracker.Add(new Tuple<Enemy, int>(enemy.Item1, 0));
             }
 
-            Util.WriteMulticolor("@15|You started \"@12|" + Name + "@15|\"\n");
-
-            /*Util.Write("You started \"");
-            Util.Write(Name + "", ConsoleColor.Red);
-            Util.WriteLine("\"");*/
+            Util.WriteColorString("@15|You started \"@12|" + Name + "@15|\"\n");
         }
 
         public void Finish(Player player, List<Tuple<Enemy, int>> enemyTracker)
@@ -60,9 +54,7 @@ namespace VeganRPG
             foreach (var enemy in QuestEnemies)
             {
                 if (enemyTracker.Find(x => x.Item1 == enemy.Item1) != null)
-                {
                     enemyTracker.RemoveAll(x => x.Item1 == enemy.Item1);
-                }
             }
 
             foreach (var item in QuestItems)
@@ -79,9 +71,31 @@ namespace VeganRPG
         {
             Util.WriteColorString("@15|You completed @12|" + Name + "\n");
 
-            /*Util.Write("You completed ");
-            Util.WriteLine(Name, ConsoleColor.Red);*/
+            RewardGiveToPlayer(player);
+            RewardDisplayReward();         
+        }
 
+        private void RewardGiveToPlayer(Player player)
+        {
+            player.Gold += GoldReward;
+            player.Experience += ExperienceReward;
+
+            if (ItemsReward.Count > 0)
+            {
+                foreach (var item in ItemsReward)
+                {
+                    if (item is Consumable consumable)
+                    {
+                        if (player.Consumables.Contains(item)) player.Consumables.Find(x => x == item).Count += 1;
+                        else player.Consumables.Add(consumable);
+                    }
+                    else player.ItemStash.Add(item);
+                }
+            }
+        }
+
+        private void RewardDisplayReward()
+        {
             if (GoldReward == 0 && ItemsReward.Count == 0 && ExperienceReward == 0)
             {
                 Console.ReadKey();
@@ -91,46 +105,11 @@ namespace VeganRPG
 
             Util.WriteLine("Reward: ");
 
-            if (GoldReward > 0)
+            if (GoldReward > 0) Util.WriteColorString("@6|" + GoldReward + " G\n");
+            if (ExperienceReward > 0) Util.WriteColorString("@4|" + ExperienceReward + " Experience\n");
+            foreach (var item in ItemsReward)
             {
-                Util.WriteColorString("@6|" + GoldReward + " G\n");
-
-                /*Util.WriteLine(GoldReward + " G", ConsoleColor.DarkYellow);*/
-
-                player.Gold += GoldReward;
-            }
-
-            if (ExperienceReward > 0)
-            {
-                Util.WriteColorString("@4|" + ExperienceReward + " Experience\n");
-
-                /*Util.WriteLine(ExperienceReward + " Experience", ConsoleColor.DarkRed);*/
-
-                player.Experience += ExperienceReward;
-            }
-            
-            if (itemsReward.Count > 0)
-            {
-                foreach (var item in itemsReward)
-                {
-                    if (item is Consumable consumable)
-                    {
-                        if (player.Consumables.Contains(item))
-                        {
-                            player.Consumables.Find(x => x == item).Count += 1;
-                        }
-                        else
-                        {
-                            player.Consumables.Add(consumable);
-                        }
-                    }
-                    else
-                    {
-                        player.ItemStash.Add(item);
-                    }
-
-                    item.Info();
-                }
+                item.Info();
             }
 
             Console.ReadKey();
@@ -140,10 +119,14 @@ namespace VeganRPG
         {
             Util.WriteColorString("@12|" + Name + "\n");
 
-            /*Util.WriteLine(Name, ConsoleColor.Red);*/
+            Util.WriteColorString(Description);
 
-            Util.WriteColorString(description);
+            InfoEnemies(enemyTracker);
+            InfoQuestItems(player);
+        }
 
+        private void InfoEnemies(List<Tuple<Enemy, int>> enemyTracker)
+        {
             if (QuestEnemies.Count > 0)
             {
                 Util.WriteLine("\nWin fights:");
@@ -152,23 +135,19 @@ namespace VeganRPG
                 foreach (var enemy in QuestEnemies)
                 {
                     if (enemyTracker.Find(x => x.Item1 == enemy.Item1) != null)
-                    {
                         enemyCount = enemyTracker.Find(x => x.Item1 == enemy.Item1).Item2;
-                    }
 
                     if (enemyCount > enemy.Item2)
-                    {
                         enemyCount = enemy.Item2;
-                    }
 
                     Util.WriteColorString("@9|" + enemy.Item1.Name + " @15|" + enemyCount + " / " +
                                           enemy.Item2 + "\n");
-
-                    /*Util.Write(enemy.Item1.Name + " ", ConsoleColor.Blue);
-                    Util.WriteLine(enemyCount + " / " + enemy.Item2);*/
                 }
             }
+        }
 
+        private void InfoQuestItems(Player player)
+        {
             if (QuestItems.Count > 0)
             {
                 Util.WriteLine("\nGet:");
@@ -177,19 +156,12 @@ namespace VeganRPG
                 foreach (var item in QuestItems)
                 {
                     if (player.QuestItems.Contains(item.Item1))
-                    {
                         itemCount = player.QuestItems.Find(x => x == item.Item1).Count;
-                    }
                     else
-                    {
                         itemCount = 0;
-                    }
 
-                    Util.WriteColorString("@12|" + item.Item1 + Name + " @15|" + itemCount +
+                    Util.WriteColorString("@12|" + item.Item1.Name + " @15|" + itemCount +
                                           "@15| / " + item.Item2 + "\n");
-
-                    /*Util.Write(item.Item1.Name + " ", ConsoleColor.Red);
-                    Util.WriteLine(itemCount + " / " + item.Item2);*/
                 }
             }
         }
@@ -205,40 +177,23 @@ namespace VeganRPG
                 {
                     itemCount = player.QuestItems.Find(x => x == questItem.Item1).Count;
 
-                    if (itemCount < questItem.Item2)
-                    {
-                        completed = false;
-                    }
+                    if (itemCount < questItem.Item2) completed = false;
                 }
-                else
-                {
-                    completed = false;
-                }
+                else completed = false;
             }
 
-            foreach (var questEnemy in questEnemies)
+            foreach (var questEnemy in QuestEnemies)
             {
                 var enemyTracked = enemyTracker.Find(x => x.Item1 == questEnemy.Item1);
 
                 if (enemyTracked != null)
                 {
                     if (enemyTracked.Item2 < questEnemy.Item2)
-                    {
                         completed = false;
-                    }
                 }
             }
 
             return completed;
         }
-
-        public int GoldReward { get => goldReward; set => goldReward = value; }
-        internal List<Item> ItemsReward { get => itemsReward; set => itemsReward = value; }
-        internal List<Tuple<Enemy, int>> QuestEnemies { get => questEnemies; set => questEnemies = value; }
-        internal List<Tuple<QuestItem, int>> QuestItems { get => questItems; set => questItems = value; }
-        public string Name { get => name; set => name = value; }
-        public string Description { get => description; set => description = value; }
-        public bool OutsideFinish { get => outsideFinish; set => outsideFinish = value; }
-        public int ExperienceReward { get => experienceReward; set => experienceReward = value; }
     }
 }
